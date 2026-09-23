@@ -1,0 +1,18 @@
+# Build output
+build/
+*.o
+*.d
+
+# macOS / editor leftovers
+.DS_Store
+.!*
+
+# AmiCode runtime data (sessions, backups, logs) - never commit
+amicode.session
+**/.amicode/backups/
+**/.amicode/sessions/
+**/.amicode/audit.log
+
+# Local configuration with API keys
+amicode.conf
+*.local

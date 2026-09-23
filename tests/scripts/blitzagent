@@ -1,0 +1,3 @@
+; Test: Agent erweitert ein AmiBlitz3-Programm
+CD RAM:acp/blitz
+Stuff:AmiCode/amicode Erweitere das Programm: Es soll die Zahlen 1 bis 5 jeweils mit ihrem Quadrat ausgeben, eine Zeile pro Zahl. Baue es danach und pruefe, ob der Build fehlerfrei war.

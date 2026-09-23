@@ -1,0 +1,3 @@
+; Test: Streaming einer laengeren Antwort (ohne Tools)
+CD Stuff:AmiCode/test
+Stuff:AmiCode/amicode STEPS 2 Erklaere in etwa 8 Saetzen mit Umlauten, wie der Blitter im Amiga funktioniert. Keine Tools benutzen.

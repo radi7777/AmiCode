@@ -1,0 +1,4 @@
+; Testprojekt zuruecksetzen (hello.c kommt per push.py); .amicode/settings bleibt
+Delete >NIL: Stuff:AmiCode/test/.amicode/backups ALL QUIET
+Delete >NIL: Stuff:AmiCode/test/.amicode/audit.log QUIET
+Delete >NIL: Stuff:AmiCode/test/amicode.session QUIET

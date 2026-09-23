@@ -1,0 +1,8 @@
+; Baut hello mit VBCC
+Assign >NIL: vbcc: Stuff:Developer/VBCC
+Assign >NIL: vincludeos3: vbcc:targets/m68k-amigaos/include
+Assign >NIL: vincludeos3: Stuff:Developer/NDK3.2R4 ADD
+Assign >NIL: vlibos3: vbcc:targets/m68k-amigaos/lib
+SetEnv VBCC vbcc:
+Path >NIL: vbcc:bin ADD
+vc +aos68k -o hello hello.c

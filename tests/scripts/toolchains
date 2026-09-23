@@ -1,0 +1,15 @@
+; Test: Werkzeuge suchen, fuer jedes ein Projekt anlegen, bauen und starten
+FailAt 21
+MakeDir >NIL: RAM:acp
+CD RAM:acp
+Stuff:AmiCode/amicode "/toolchains scan"
+Stuff:AmiCode/amicode "/new vbcc RAM:acp/cvbcc"
+Stuff:AmiCode/amicode "/new sasc RAM:acp/csasc"
+Stuff:AmiCode/amicode "/new gcc RAM:acp/cgcc"
+Stuff:AmiCode/amicode "/new amiblitz RAM:acp/blitz"
+Stuff:AmiCode/amicode "/new amigae RAM:acp/etest"
+Stuff:AmiCode/amicode "/new purebasic RAM:acp/pbtest"
+Stuff:AmiCode/amicode "/new vasm RAM:acp/asmtest"
+Stuff:AmiCode/amicode "/new lua RAM:acp/luatest"
+Stuff:AmiCode/amicode "/new python RAM:acp/pytest"
+Stuff:AmiCode/amicode "/new arexx RAM:acp/rxtest"

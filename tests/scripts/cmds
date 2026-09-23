@@ -1,0 +1,9 @@
+; Test: Befehle /status, !!befehl, /context, /tokens, /compact, /model
+CD Stuff:AmiCode/test
+Stuff:AmiCode/amicode /status
+Stuff:AmiCode/amicode !!List #?.c
+Stuff:AmiCode/amicode Baue das Projekt, behebe alle Compilerfehler und baue erneut.
+Stuff:AmiCode/amicode RESUME /context
+Stuff:AmiCode/amicode RESUME /compact
+Stuff:AmiCode/amicode RESUME /context
+Stuff:AmiCode/amicode RESUME Welche Dateien hast du in dieser Sitzung geaendert? Antworte in einem Satz, ohne Tools.

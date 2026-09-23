@@ -1,0 +1,29 @@
+; Test: alle angelegten Projekte bauen und starten
+FailAt 21
+CD RAM:acp/cvbcc
+Execute build
+cvbcc
+CD RAM:acp/csasc
+Execute build
+csasc
+CD RAM:acp/cgcc
+Execute build
+cgcc
+CD RAM:acp/blitz
+Execute build
+blitz
+CD RAM:acp/etest
+Execute build
+etest
+CD RAM:acp/pbtest
+Execute build
+pbtest
+CD RAM:acp/asmtest
+Execute build
+asmtest
+CD RAM:acp/luatest
+"Stuff:Developer/Lua/lua" luatest.lua
+CD RAM:acp/pytest
+Execute run
+CD RAM:acp/rxtest
+SYS:Rexxc/rx rxtest.rexx

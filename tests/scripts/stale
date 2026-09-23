@@ -1,0 +1,3 @@
+; Test: Veraltungsschutz - Aenderung ohne vorheriges Lesen
+CD Stuff:AmiCode/test
+Stuff:AmiCode/amicode STEPS 4 Rufe sofort edit_file auf hello.c auf und ersetze "Hallo vom Amiga!" durch "Hallo Welt!", ohne die Datei vorher zu lesen. Berichte, was passiert.

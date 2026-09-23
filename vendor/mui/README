@@ -1,0 +1,19 @@
+Vendored MUI 3.8 developer-kit header subset
+============================================
+
+Source: Aminet dev/mui/mui38dev.lha (MagicUserInterface 3.8 developer files,
+(c) Stefan Stuntz - freely distributable developer material). Only the
+C headers are vendored (libraries/, proto/, clib/, inline/).
+
+Why vendored: the headers shipped with current m68k-amigaos-gcc toolchains
+target MUI 5 and require muimaster.library V20; AmiCodeIDE must run with
+MUI 3.8 (muimaster V19), so it compiles against these.
+
+inline/muimaster.h is NOT the original: the 1997 file's multi-line asm
+strings don't compile on modern GCC, so it was rewritten against
+FD/muimaster_lib.fd using the NDK's LP* macros (same mechanism as the
+toolchain's own inlines). Same LVOs, same behaviour.
+
+Used at compile time by the AmiCodeIDE sources (src/gui*.c). The MCC
+headers (NList, TextEditor, BetterString, TheBar, ...) come from the
+toolchain.

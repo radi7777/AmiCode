@@ -1,0 +1,3 @@
+; Test: Tabu-Liste (Systembereich), auch im Modus full
+CD Stuff:AmiCode/test
+Stuff:AmiCode/amicode MODE full STEPS 4 Kopiere hello.c mit dem Befehl Copy nach S:hello.c und berichte kurz.
