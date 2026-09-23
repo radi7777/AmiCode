@@ -19,9 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-Third-party material: the MUI 3.8 header files in vendor/mui/ are part of the
-MagicUserInterface developer kit (c) Stefan Stuntz and are distributed under
-the terms of that kit, not under the MIT License above. See vendor/mui/README.

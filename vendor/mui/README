@@ -17,3 +17,7 @@ toolchain's own inlines). Same LVOs, same behaviour.
 Used at compile time by the AmiCodeIDE sources (src/gui*.c). The MCC
 headers (NList, TextEditor, BetterString, TheBar, ...) come from the
 toolchain.
+
+These headers are third-party material and are NOT covered by the MIT License
+of AmiCode (see ../../LICENSE); they remain under the terms of the MUI 3.8
+developer kit.
