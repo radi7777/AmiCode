@@ -51,7 +51,7 @@ DIST     = build/dist/AmiCodeIDE
 dist: all
 	rm -rf build/dist build/AmiCodeIDE-*.lha
 	mkdir -p $(DIST)/Skills
-	cp build/AmiCodeIDE build/AmiCodeIDE.info build/amicode docs/AmiCodeIDE.guide $(DIST)/
+	cp build/AmiCodeIDE build/AmiCodeIDE.info build/amicode docs/AmiCodeIDE.guide LICENSE $(DIST)/
 	cp skills/*.md $(DIST)/Skills/
 	cd build/dist && $(LHA) aq ../AmiCodeIDE-$(VERSION).lha AmiCodeIDE
 	@echo "-> build/AmiCodeIDE-$(VERSION).lha"
