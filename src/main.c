@@ -15,10 +15,11 @@
 #include "tools.h"
 #include "agent.h"
 #include "provider.h"
+#include "amiloc.h"
 
-#define VERSION_STRING "0.19"
+#define VERSION_STRING "0.30"
 
-static const char vers[] __attribute__((used)) = "$VER: AmiCode " VERSION_STRING " (23.09.2026)";
+static const char vers[] __attribute__((used)) = "$VER: AmiCode " VERSION_STRING " (24.09.2026)";
 
 /* OpenSSL braucht deutlich mehr als die Shell-Vorgabe von 4 KB; libnix tauscht den Stack beim Start */
 unsigned long __stack = 65536;
@@ -26,14 +27,11 @@ unsigned long __stack = 65536;
 #define TEMPLATE "MODE/K,STEPS/K/N,CONFIG/K,RESUME/S,PROMPT/F"
 enum { ARG_MODE, ARG_STEPS, ARG_CONFIG, ARG_RESUME, ARG_PROMPT, ARG_COUNT };
 
-#define CONTINUE_PROMPT "Setze die unterbrochene Arbeit fort."
+#define CONTINUE_PROMPT GetStr(MSG_CONTINUE_PROMPT)
 
 static void usage(void)
 {
-    printf("AmiCode " VERSION_STRING " - Coding-Agent fuer AmigaOS\n"
-           "Aufruf: amicode [MODE safe|project|full] [STEPS n] [RESUME] [<Auftrag>]\n"
-           "Ohne Auftrag: interaktiver Modus. Arbeitet im aktuellen Verzeichnis.\n"
-           "CTRL-C bricht den laufenden Befehl bzw. Auftrag ab.\n");
+    printf(GetStr(MSG_CLI_USAGE), VERSION_STRING);
 }
 
 /* Interaktive Schleife: Auftraege nacheinander in derselben Sitzung */
@@ -42,11 +40,11 @@ static void repl(Agent *ag, int max_steps)
     char line[1024];
     BPTR in = Input();
 
-    printf("Interaktiver Modus. /help zeigt die Befehle, /exit beendet.\n");
+    printf("%s\n", GetStr(MSG_CLI_INTERACTIVE));
     for (;;) {
         char *s, *e;
 
-        printf("\nAuftrag> ");
+        printf("\n%s> ", GetStr(MSG_CLI_PROMPT));
         fflush(stdout);
         SetSignal(0, SIGBREAKF_CTRL_C);
         if (!FGets(in, line, sizeof(line)))
@@ -77,8 +75,10 @@ int main(void)
     int mode, max_steps, rc = RETURN_FAIL, interactive;
 
     (void)vers;
+    locale_open();
     if (!(rda = ReadArgs(TEMPLATE, args, NULL))) {
         PrintFault(IoErr(), "AmiCode");
+        locale_close();
         return RETURN_FAIL;
     }
     prompt = (const char *)args[ARG_PROMPT];
@@ -86,20 +86,22 @@ int main(void)
     if (!prompt && !interactive && !args[ARG_RESUME]) {
         usage();
         FreeArgs(rda);
+        locale_close();
         return RETURN_WARN;
     }
 
     cfgpath = args[ARG_CONFIG] ? (const char *)args[ARG_CONFIG] : CONFIG_DEFAULT_PATH;
     if (!config_load(&cfg, cfgpath) &&
         (args[ARG_CONFIG] || !config_load(&cfg, "ENVARC:AmiCode/amicode.conf"))) {
-        printf("Konfiguration '%s' nicht lesbar.\n", cfgpath);
+        printf(GetStr(MSG_CLI_NO_CONFIG), cfgpath);
         FreeArgs(rda);
+        locale_close();
         return RETURN_FAIL;
     }
 
     modestr = args[ARG_MODE] ? (const char *)args[ARG_MODE] : config_get(&cfg, "agent.mode", "project");
     if ((mode = mode_parse(modestr)) < 0) {
-        printf("Unbekannter Modus '%s' (safe, project, full)\n", modestr);
+        printf(GetStr(MSG_CLI_BAD_MODE), modestr);
         goto out_cfg;
     }
     max_steps = args[ARG_STEPS] ? *(LONG *)args[ARG_STEPS] : atoi(config_get(&cfg, "agent.max_steps", "30"));
@@ -107,35 +109,35 @@ int main(void)
         max_steps = 1;
 
     if (!tools_init(&tools, &cfg, mode)) {
-        printf("Aktuelles Verzeichnis nicht ermittelbar\n");
+        printf("%s\n", GetStr(MSG_CLI_NO_CWD));
         goto out_cfg;
     }
     if (!net_open(err, sizeof(err))) {
-        printf("Netzwerk: %s\n", err);
+        printf(GetStr(MSG_NETWORK_ERR), err);
         goto out_tools;
     }
 
     {
         ProviderSettings ps;
         provider_settings(&cfg, NULL, &ps);
-        printf("AmiCode " VERSION_STRING " | %s: %s | Modus %s | max. %d Schritte\nProjekt: %s\n",
-               ps.def->name, *ps.model ? ps.model : "(kein Modell)",
+        printf(GetStr(MSG_CLI_BANNER), VERSION_STRING,
+               ps.def->name, *ps.model ? ps.model : GetStr(MSG_NO_MODEL),
                mode_name(mode), max_steps, tools.root);
     }
 
     if (!agent_init(&agent, &cfg, &tools)) {
-        printf("Kein Speicher\n");
+        printf("%s\n", GetStr(MSG_NO_MEMORY));
         goto out_net;
     }
     agent.version = VERSION_STRING;
     if (args[ARG_RESUME]) {
         int n = agent_resume(&agent);
         if (n < 0) {
-            printf("Keine gespeicherte Sitzung gefunden (%s).\n", agent.session);
+            printf(GetStr(MSG_CLI_NO_SESSION), agent.session);
             goto out_agent;
         }
         agent_show_history(&agent);
-        printf("Sitzung mit %d Nachrichten fortgesetzt.\n", n);
+        printf(GetStr(MSG_CLI_RESUMED), n);
         if (!prompt && !interactive)
             prompt = CONTINUE_PROMPT;
     }
@@ -155,5 +157,6 @@ out_tools:
 out_cfg:
     config_free(&cfg);
     FreeArgs(rda);
+    locale_close();
     return rc;
 }

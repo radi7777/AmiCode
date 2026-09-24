@@ -13,6 +13,7 @@
 #include <proto/dos.h>
 
 #include "skills.h"
+#include "amiloc.h"
 
 #define SKILL_MAXSIZE   (16 * 1024)
 
@@ -181,12 +182,12 @@ void skills_read(const Config *cfg, const char *name, StrBuf *out)
         if (stricmp(si[i].name, name) != 0)
             continue;
         if (skills_mode(cfg, si[i].name) == SKILL_OFF)
-            sb_add(out, "Fehler: dieser Skill ist abgeschaltet.");
+            sb_add(out, "Error: this skill is switched off.");
         else if (!add_body(&si[i], out))
-            sb_add(out, "Fehler: Skill konnte nicht gelesen werden.");
+            sb_add(out, "Error: could not read the skill.");
         return;
     }
-    sb_add(out, "Fehler: kein Skill mit diesem Namen. Vorhanden:");
+    sb_add(out, "Error: no skill with this name. Available:");
     for (i = 0; i < n; i++) {
         sb_add(out, " ");
         sb_add(out, si[i].name);
@@ -196,19 +197,18 @@ void skills_read(const Config *cfg, const char *name, StrBuf *out)
 void skills_list(const Config *cfg, StrBuf *out)
 {
     static SkillInfo si[SKILLS_MAX];
-    static const char *label[] = { "aus  ", "auto ", "immer" };
+    static const long label[] = { MSG_SKILL_OFF, MSG_SKILL_AUTO, MSG_SKILL_ALWAYS };
     int n = skills_scan(si, SKILLS_MAX), i;
     char line[300];
 
     if (!n) {
-        sb_add(out, "Keine Skills gefunden (PROGDIR:Skills, .amicode/skills).");
+        sb_add(out, GetStr(MSG_SKILLS_NONE));
         return;
     }
     for (i = 0; i < n; i++) {
-        snprintf(line, sizeof(line), "%s  %-12.31s %.63s\n", label[skills_mode(cfg, si[i].name)],
+        snprintf(line, sizeof(line), "%-6s %-12.31s %.63s\n", GetStr(label[skills_mode(cfg, si[i].name)]),
                  si[i].name, si[i].title);
         sb_add(out, line);
     }
-    sb_add(out, "Modus aendern: IDE-Menue Projekt/Skills... oder [skills] name=always|auto|off "
-                "in der Konfiguration.");
+    sb_add(out, GetStr(MSG_SKILLS_HINT));
 }

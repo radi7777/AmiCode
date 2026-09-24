@@ -19,6 +19,8 @@
 
 #include "gui_skills.h"
 #include "skills.h"
+#include "amiloc.h"
+#include "theme.h"
 
 enum { KID_ALWAYS = SKILLS_ID_BASE, KID_AUTO, KID_OFF, KID_SAVE, KID_CANCEL, KID_ACTIVE };
 
@@ -37,14 +39,12 @@ Object *skillswin_create(void)
     if (!list)
         return NULL;
     win = WindowObject,
-        MUIA_Window_Title, (ULONG)"AmiCodeIDE - Skills",
+        MUIA_Window_Title, (ULONG)GetStr(MSG_SK_TITLE),
         MUIA_Window_ID, MAKE_ID('A','M','S','K'),
         MUIA_HelpNode, (ULONG)"SKILLS",
         WindowContents, VGroup,
             Child, TextObject, MUIA_Text_Contents, (ULONG)
-                "Wissen, das der Agent ueber den Amiga bekommt.\n"
-                "\33bImmer\33n: steht fest im Prompt (fuer lokale Modelle wie qwen).\n"
-                "\33bAutomatisch\33n: das Modell holt es bei Bedarf (spart Tokens).", End,
+                GetStr(MSG_SK_INFO), End,
             Child, MUI_NewObject(MUIC_NListview, MUIA_NListview_NList, (ULONG)list,
                                  MUIA_FixHeightTxt, (ULONG)"\n\n\n\n\n\n\n\n",
                                  MUIA_FixWidthTxt, (ULONG)"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
@@ -52,13 +52,13 @@ Object *skillswin_create(void)
             Child, desc = TextObject, TextFrame, MUIA_Background, MUII_TextBack,
                           MUIA_Text_Contents, (ULONG)"", MUIA_FixHeightTxt, (ULONG)"\n\n", End,
             Child, HGroup,
-                Child, bt_always = SimpleButton("_Immer"),
-                Child, bt_auto = SimpleButton("_Automatisch"),
-                Child, bt_off = SimpleButton("A_us"),
+                Child, bt_always = SimpleButton(GetStr(MSG_SK_ALWAYS)),
+                Child, bt_auto = SimpleButton(GetStr(MSG_SK_AUTO)),
+                Child, bt_off = SimpleButton(GetStr(MSG_SK_OFF)),
             End,
             Child, HGroup,
-                Child, bt_save = SimpleButton("_Speichern"),
-                Child, bt_cancel = SimpleButton("Abbre_chen"),
+                Child, bt_save = SimpleButton(GetStr(MSG_SAVE)),
+                Child, bt_cancel = SimpleButton(GetStr(MSG_CANCEL_C)),
             End,
         End,
     End;
@@ -83,14 +83,15 @@ int skillswin_is_id(ULONG id)
 
 static void fill(LONG active)
 {
-    static const char *label[] = { "aus        ", "\33bautomatisch\33n", "\33bimmer\33n      " };
+    static const long label[] = { MSG_SKILL_OFF, MSG_SKILLW_AUTO, MSG_SKILL_ALWAYS };
     static char line[160];
     int i;
 
     set(list, MUIA_NList_Quiet, TRUE);
     DoMethod(list, MUIM_NList_Clear);
     for (i = 0; i < count; i++) {
-        snprintf(line, sizeof(line), "%s  %-10.31s %.63s", label[modes[i]], skills[i].name, skills[i].title);
+        snprintf(line, sizeof(line), modes[i] ? "\33b%-11s\33n  %-10.31s %.63s" : "%-11s  %-10.31s %.63s",
+                 GetStr(label[modes[i]]), skills[i].name, skills[i].title);
         DoMethod(list, MUIM_NList_InsertSingle, (ULONG)line, MUIV_NList_Insert_Bottom);
     }
     set(list, MUIA_NList_Quiet, FALSE);
@@ -106,8 +107,9 @@ void skillswin_open(const Config *cfg)
         modes[i] = skills_mode(cfg, skills[i].name);
     fill(0);
     set(desc, MUIA_Text_Contents, count ? skills[0].desc :
-        "Keine Skills gefunden (Skills neben dem Programm oder .amicode/skills im Projekt).");
+        GetStr(MSG_SK_NONE));
     set(win, MUIA_Window_Open, TRUE);
+    theme_list(list, TA_LIST);
     set(win, MUIA_Window_ActiveObject, list);
 }
 

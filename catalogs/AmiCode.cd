@@ -1,0 +1,788 @@
+; AmiCode.cd - Katalogbeschreibung fuer AmiCode und AmiCodeIDE.
+;
+; Die hier stehenden Texte sind die EINGEBAUTEN, also Englisch. Sie greifen,
+; wenn kein Katalog passt. Uebersetzungen stehen in catalogs/<sprache>.ct.
+;
+; Format je Eintrag:   MSG_NAME (id//)
+;                      Der Text (eine Zeile, C-Escapes wie \n und \33 erlaubt)
+; Ein _ markiert die Tastaturabkuerzung eines Knopfes.
+; printf-Platzhalter (%s, %ld ...) muessen in jeder Uebersetzung in derselben
+; Reihenfolge stehen - tools/locale.py prueft das.
+; Nummern werden fortlaufend vergeben: neue Eintraege nur ans ENDE haengen,
+; sonst zeigen alte Kataloge falsche Texte.
+;
+#version 0
+MSG_CLI_ERROR (0//)
+Error: %s\n
+MSG_CLI_SWITCH_DIR (//)
+Switch with: CD \"%s\"\n
+MSG_CLI_ASK (//)
+\n  ? %s\n    Allow? [y]es / [n]o / [a]lways / [q] abort task (Return = no): 
+MSG_CLI_NO_INPUT (//)
+(no input possible - refused)
+MSG_CONTINUE_PROMPT (//)
+Continue the interrupted work.
+MSG_CLI_USAGE (//)
+AmiCode %s - coding agent for AmigaOS\nUsage: amicode [MODE safe|project|full] [STEPS n] [RESUME] [<task>]\nWithout a task: interactive mode. Works in the current directory.\nCTRL-C aborts the running command or task.\n
+MSG_CLI_INTERACTIVE (//)
+Interactive mode. /help lists the commands, /exit quits.
+MSG_CLI_PROMPT (//)
+Task
+MSG_CLI_NO_CONFIG (//)
+Cannot read configuration '%s'.\n
+MSG_CLI_BAD_MODE (//)
+Unknown mode '%s' (safe, project, full)\n
+MSG_CLI_NO_CWD (//)
+Cannot determine the current directory
+MSG_NETWORK_ERR (//)
+Network: %s\n
+MSG_CLI_BANNER (//)
+AmiCode %s | %s: %s | mode %s | max. %d steps\nProject: %s\n
+MSG_NO_MODEL (//)
+(no model)
+MSG_NO_MEMORY (//)
+Out of memory
+MSG_CLI_NO_SESSION (//)
+No saved session found (%s).\n
+MSG_CLI_RESUMED (//)
+Session with %d messages resumed.\n
+MSG_SESSION_ARCHIVE_FAIL (//)
+Could not archive the session (%s)
+MSG_SESSION_UNKNOWN (//)
+No session \"%s\" - /sessions shows the list.
+MSG_SESSION_CURRENT (//)
+Current session: %s\n
+MSG_SESSION_CURRENT_EMPTY (//)
+Current session: (still empty)\n
+MSG_SESSION_NONE_ARCHIVED (//)
+No archived sessions.\n
+MSG_SESSION_LIST_HINT (//)
+Resume: /resume <no>, delete: /sessions delete <no>
+MSG_SESSION_DELETE_FAIL (//)
+Delete failed: %s
+MSG_SESSION_DELETED (//)
+Session %s deleted.
+MSG_SESSION_DISABLED (//)
+Sessions are not saved ([agent] session=none).
+MSG_SESSION_LOAD_FAIL (//)
+Could not load session %s.
+MSG_SESSION_NOT_FOUND (//)
+No saved session found.
+MSG_SESSION_LOADED_CONT (//)
+Session with %d messages loaded - just keep typing.
+MSG_CTX_PRUNED_AUTO (//)
+(Context trimmed: %d old tool results removed, now %ld KB)
+MSG_RULES_LOADED (//)
+Project rules loaded from %s.
+MSG_CTX_TOO_SMALL (//)
+The context of %ld tokens is too small: right after summarizing, %ld tokens are already used (system prompt, tools, working note). Please enter at least 8192 in the settings.
+MSG_CTX_AUTO_COMPACT (//)
+Context %ld%% full (%ld of %ld tokens) - summarizing the session and continuing.
+MSG_OLLAMA_CTX (//)
+Ollama works with only %ld tokens of context; the request (%ld tokens) gets cut and the model loses the beginning (system prompt, tools).
+MSG_OLLAMA_CTX_FIX (//)
+Fix: set OLLAMA_CONTEXT_LENGTH=32768 on the Ollama machine and restart Ollama, or use /compact.
+MSG_ABORTED_CTRLC (//)
+Aborted (CTRL-C)
+MSG_COST_LIMIT (//)
+Cost limit reached: this task has already cost %s (limit $%s). Continue with \"go on\" or change the limit in the settings.
+MSG_NO_MEMORY_CONV (//)
+Out of memory for the conversation
+MSG_STEP_THINKING (//)
+[%d] thinking ...
+MSG_TEXT_TOOLCALL (//)
+(tool call recognized in the text)
+MSG_SAME_ERROR (//)
+(same error, %d times now)
+MSG_TASK_ABORTED (//)
+Task aborted by the user.
+MSG_LOOP_STOPPED (//)
+Stopped: the agent keeps repeating the same failing steps. Tip: describe the error in more detail, then continue - or choose another model.
+MSG_STEP_LIMIT (//)
+Step limit (%d) reached - task incomplete, can be continued.
+MSG_DONE_COST (//)
+, cost %s
+MSG_DONE_CACHED (//)
+(%d steps, tokens: %ld in, %ld of them cached / %ld out%s)
+MSG_DONE (//)
+(%d steps, tokens: %ld in / %ld out%s)
+MSG_COMPACT_NOTHING (//)
+Nothing to summarize.
+MSG_COMPACT_RUNNING (//)
+Summarizing the session ...
+MSG_COMPACT_FAIL (//)
+Summary failed: %s
+MSG_EMPTY_ANSWER (//)
+empty answer
+MSG_COMPACT_DONE (//)
+Session summarized: %ld KB -> %ld KB.
+MSG_PRUNE_DONE (//)
+%d old tool results removed: %ld KB -> %ld KB.
+MSG_HELP (//)
+/help           this overview\n/status         version, model, mode, project\n/context        size of the conversation\n/tokens         tokens used\n/model [name]   list available models or switch for this session\n/compact [focus] summarize the conversation and continue with that\n/prune          remove old tool results\n/diff           show the changes of this session\n/undo           restore the last changed file\n/reset          start a new session (the old one is archived)\n/sessions [delete <no>]  list or delete archived sessions\n/resume [no]    resume the last or an archived session\n/skills         knowledge skills and their mode (always/auto/off)\n/toolchains [scan] list installed compilers/interpreters or search again\n/new <tool> <directory>  create a new project, e.g. /new vbcc Work:Projects/demo\n!command        run a command yourself, the output goes to the model with the next task\n!!command       run a command yourself, the output is only for you\nFull manual: AmiCodeIDE.guide (in the IDE: HELP key or Amiga-H)
+MSG_OUTPUT_TO_MODEL (//)
+(The output goes to the model with the next task.)
+MSG_NEW_SESSION (//)
+New session started.
+MSG_TC_SEARCHING (//)
+Searching for development tools ...\n
+MSG_TC_FOUND (//)
+%d tools found.
+MSG_NEW_USAGE (//)
+Usage: /new <tool> <directory> - /toolchains lists the tools.
+MSG_CONTEXT_INFO (//)
+Conversation: %d messages (%d tool results, %d trimmed), %ld KB, trimmed automatically from %ld KB.
+MSG_CONTEXT_LAST (//)
+Last request: %ld tokens of context.
+MSG_TOKENS_INFO (//)
+Tokens in this session: %ld in (%ld of them cached), %ld out.
+MSG_COST_INFO (//)
+Cost since start: %s (reported by the provider).
+MSG_MODEL_SET (//)
+Model for this session: %s (%s). Permanently: settings.
+MSG_MODEL_INFO (//)
+Provider: %s, model: %s%s
+MSG_MODEL_FOR_SESSION (//)
+ (chosen for this session)
+MSG_MODELS_FETCHING (//)
+Fetching available models ...
+MSG_MODELS_FAIL (//)
+Model list not available: %s
+MSG_MODELS_COUNT (//)
+%d models. Switch with /model <name>.
+MSG_STATUS_LINE (//)
+AmiCode %s | %s | model %s | mode %s
+MSG_STATUS_PROJECT (//)
+Project: %s
+MSG_STATUS_SESSION (//)
+Session: %s, %d messages, %d changed files
+MSG_NOT_SAVED (//)
+(not saved)
+MSG_UNKNOWN_CMD (//)
+Unknown command /%s - /help lists all commands.
+MSG_ASK_ALWAYS_NOTE (//)
+%s\n(\"Always\" applies to all further %s calls in this session)
+MSG_ASK_NEVER (//)
+WARNING - %s\n%s\n(This approval applies to this one call only)
+MSG_WHY_SYSTEM (//)
+system area (SYS:, C:, S:, LIBS:, DEVS:, L:)
+MSG_WHY_OUTSIDE (//)
+outside the project directory
+MSG_WHY_DISKS (//)
+command changes volumes or assigns
+MSG_WHY_DELETE_ALL (//)
+recursive delete (Delete ALL)
+MSG_WHY_SYSCMD (//)
+command refers to a system area
+MSG_BACKUP (//)
+(backup: %s)
+MSG_BACKUP_FAIL (//)
+Backup of %s failed
+MSG_DIFF_MORE_DEL (//)
+- ... (%d more lines)\n
+MSG_DIFF_MORE_ADD (//)
++ ... (%d more lines)\n
+MSG_DIFF_FROM_LINE (//)
+@@ from line %d\n
+MSG_DIFF_LINE (//)
+@@ line %d\n
+MSG_DIFF_MORE (//)
+... (more changes)\n
+MSG_DIFF_NONE (//)
+(no change)\n
+MSG_ASK_OVERWRITE (//)
+Overwrite file: %s\n
+MSG_ASK_CREATE (//)
+Create new file: %s (%ld bytes)\n
+MSG_ASK_EDIT (//)
+Change file: %s\n
+MSG_ASK_RUN (//)
+Run command: %s\nDirectory: %s
+MSG_ASK_SEARCH (//)
+Search the internet: %s
+MSG_ASK_FETCH (//)
+Load web page: %s
+MSG_NO_CHANGES (//)
+No changes in this session.
+MSG_UNDO_RESTORED (//)
+Restored: %s (state before the first change in this session)
+MSG_UNDO_FAIL (//)
+Error: could not restore %s (backup: %s)
+MSG_UNDO_DELETED (//)
+Deleted: %s (was newly created in this session)
+MSG_UNDO_CANT_DELETE (//)
+cannot delete the newly created file
+MSG_DIFF_GONE (//)
+(file no longer exists)\n
+MSG_DESC_PROJECT (//)
+(project)
+MSG_NET_NO_BSD (//)
+bsdsocket.library not found - is the TCP/IP stack running?
+MSG_NET_NO_AMISSL (//)
+amisslmaster.library (AmiSSL 5) not found
+MSG_NET_AMISSL_INIT (//)
+Could not initialize AmiSSL (version too old?)
+MSG_NET_CERTS (//)
+Cannot load the certificate store
+MSG_NET_DNS (//)
+DNS: cannot resolve '%s'
+MSG_NET_SOCKET (//)
+socket() failed
+MSG_NET_CONNECT (//)
+Connection to %s:%d failed (errno %d)
+MSG_NET_BAD_URL (//)
+Invalid URL: %s
+MSG_NET_CERT_REJECTED (//)
+TLS: certificate rejected: %s%s
+MSG_NET_CHECK_CLOCK (//)
+ - check the system clock!
+MSG_NET_HANDSHAKE (//)
+TLS handshake failed
+MSG_NET_SEND (//)
+Sending failed
+MSG_NO_MEMORY_ANSWER (//)
+Out of memory for the answer
+MSG_NET_BAD_HTTP (//)
+Invalid HTTP answer
+MSG_NET_BAD_CHUNKED (//)
+Broken chunked answer
+MSG_NET_REDIRECTS (//)
+Too many redirects
+MSG_NET_HEADER_BIG (//)
+HTTP header too large
+MSG_NET_HEADER_CLOSED (//)
+Connection closed before the end of the header
+MSG_PROV_NO_BASE (//)
+No base URL entered
+MSG_PROV_NO_MESSAGE (//)
+(no message)
+MSG_PROV_NO_MODELLIST (//)
+The answer contains no model list
+MSG_PROV_NO_BASE_FOR (//)
+No base URL entered for %s (settings)
+MSG_PROV_NO_KEY (//)
+No API key entered for %s (settings)
+MSG_PROV_NO_MODEL (//)
+No model chosen for %s (settings or /model)
+MSG_PROV_EFFORT_RETRY (//)
+(model requires reasoning_effort=none with tools - trying again)
+MSG_PROV_RETRY (//)
+(server reports HTTP %d - trying again in %ld s)
+MSG_PROV_NO_ERRMSG (//)
+(no error message)
+MSG_PROV_NO_JSON (//)
+(no JSON answer)
+MSG_PROV_BAD_JSON (//)
+The answer is not valid JSON
+MSG_PROV_NO_MSG (//)
+The answer contains no message
+MSG_WEB_SEARCH_HTTP (//)
+Search service answers with HTTP %d
+MSG_WEB_ONLY_HTTP (//)
+Only http:// and https:// are supported
+MSG_WEB_NOT_TEXT (//)
+Not a text page (%s, %lu bytes)
+MSG_WEB_BINARY (//)
+Binary data (%lu bytes)
+MSG_SHELL_NO_BREAK (//)
+(command does not react to CTRL-C, still waiting ...)
+MSG_SHELL_BREAK_SENT (//)
+(CTRL-C sent to the command)
+MSG_SHELL_TIMEOUT (//)
+(time limit of %ld s reached, Break sent)
+MSG_SKILL_OFF (//)
+off
+MSG_SKILL_AUTO (//)
+auto
+MSG_SKILL_ALWAYS (//)
+always
+MSG_SKILLS_NONE (//)
+No skills found (PROGDIR:Skills, .amicode/skills).
+MSG_SKILLS_HINT (//)
+Change the mode: IDE menu Project/Skills... or [skills] name=always|auto|off in the configuration.
+MSG_TC_NDK (//)
+NDK headers (for VBCC)
+MSG_TC_SAVED (//)
+%d tools found and saved to %s.\n
+MSG_TC_KNOWN (//)
+Known development tools (/toolchains scan searches again):\n
+MSG_TC_NONE (//)
+  (none)\n
+MSG_TC_NEW_HINT (//)
+New project: /new <tool> <directory>, e.g. /new vbcc Work:Projects/demo\n
+MSG_TC_CUSTOM (//)
+Own project (no presets)
+MSG_TC_UNKNOWN (//)
+Unknown tool '%s'. /toolchains lists the known ones.
+MSG_TC_NO_LIST (//)
+No tool list - run /toolchains scan.
+MSG_TC_NOT_FOUND (//)
+%s was not found on this Amiga (/toolchains scan).
+MSG_TC_NEED_DIR (//)
+Please give a directory with a name, e.g. Work:Projects/demo
+MSG_TC_EXISTS (//)
+There is already a project in %s (AMICODE.md). Nothing changed.
+MSG_TC_MKDIR_FAIL (//)
+Could not create directory %s.
+MSG_TC_CREATED_CUSTOM (//)
+Project %s created in %s (no presets): AMICODE.md, .amicode/settings
+MSG_TC_CREATED (//)
+Project %s created in %s (%s):\n  %s.%s
+MSG_TC_RUN_WITH (//)
+Run with: %s
+MSG_NP_KIND_CLI (//)
+Shell program (CLI)
+MSG_NP_KIND_WINDOW (//)
+Window program (Intuition/GadTools)
+MSG_NP_KIND_MUI (//)
+MUI application
+MSG_NP_KIND_OTHER (//)
+Other (library, tool, game ...)
+MSG_NP_TITLE (//)
+AmiCodeIDE - New project
+MSG_NP_GROUP_PROJECT (//)
+Project
+MSG_NP_NAME (//)
+Name:
+MSG_NP_LOCATION (//)
+Will be created in:
+MSG_NP_GROUP_TOOL (//)
+Language / tool
+MSG_NP_GROUP_TARGET (//)
+Program and target system
+MSG_NP_KIND (//)
+Program type:
+MSG_NP_CPU (//)
+CPU at least:
+MSG_NP_OS (//)
+System at least:
+MSG_NP_GROUP_DESC (//)
+What should the program do?
+MSG_NP_GO (//)
+Start right away: send the description to the agent as the first task
+MSG_NP_CREATE (//)
+C_reate
+MSG_NP_CANCEL (//)
+_Cancel
+MSG_NP_READING (//)
+Reading the installed tools ...
+MSG_NP_HINT (//)
+Choose name and tool, describe the task, then Create.
+MSG_NP_ERR_NAME (//)
+\33bPlease enter a project name.
+MSG_NP_ERR_BASE (//)
+\33bThe projects drawer does not exist.
+MSG_NP_ERR_EXISTS (//)
+\33bA project with this name already exists.
+MSG_NP_ERR_TOOL (//)
+\33bPlease choose a language/tool.
+MSG_NP_ERR_DESC (//)
+\33bWithout presets the agent needs a description of the task.
+MSG_NP_FIRST_CUSTOM (//)
+New project \"%s\" without presets. Task:\n%s\nRead AMICODE.md first. Choose a suitable language and an installed tool, create the source and a build script, enter build=, run= and main= in .amicode/settings, build the program and fix all errors. Ask if anything about the task is unclear.
+MSG_NP_FIRST (//)
+New project \"%s\". Task:\n%s\nRead AMICODE.md first. Implement the task in the existing main source (replace the hello world), build the program and fix all errors. Ask if anything about the task is unclear.
+MSG_PS_TITLE (//)
+AmiCodeIDE - Open project
+MSG_PS_OPEN (//)
+_Open
+MSG_PS_NEW (//)
+_New project...
+MSG_PS_OTHER (//)
+Other _drawer...
+MSG_CANCEL_C (//)
+_Cancel
+MSG_PS_LIST (//)
+Projects in %s:
+MSG_PS_EMPTY (//)
+No projects in %s yet - create one.
+MSG_SS_TITLE (//)
+AmiCodeIDE - Sessions
+MSG_SS_LOADING (//)
+Loading sessions ...
+MSG_SS_RESUME (//)
+_Resume
+MSG_SS_DELETE (//)
+_Delete
+MSG_SS_CLOSE (//)
+_Close
+MSG_SS_CURRENT (//)
+\33bCurrent\33n            %.*s
+MSG_SS_LIST (//)
+Sessions of this project (newest first):
+MSG_SS_EMPTY (//)
+No sessions in this project yet.
+MSG_SK_TITLE (//)
+AmiCodeIDE - Skills
+MSG_SK_INFO (//)
+Knowledge about the Amiga that the agent gets.\n\33bAlways\33n: fixed in the prompt (for local models like qwen).\n\33bAutomatic\33n: the model loads it when needed (saves tokens).
+MSG_SK_ALWAYS (//)
+_Always
+MSG_SK_AUTO (//)
+A_utomatic
+MSG_SK_OFF (//)
+O_ff
+MSG_SAVE (//)
+_Save
+MSG_SKILLW_AUTO (//)
+automatic
+MSG_SK_NONE (//)
+No skills found (Skills next to the program or .amicode/skills in the project).
+MSG_GA_CD_FAIL (//)
+CD: directory \"%s\" not found
+MSG_GA_NETWORK (//)
+Network: %s
+MSG_GA_NO_NET_ABOVE (//)
+No network connection (see above).
+MSG_GA_SESSION_LOADED (//)
+Session with %d messages loaded.
+MSG_GA_NO_NET (//)
+No network connection.
+MSG_GA_MODELS_ERR (//)
+Loading models: %s
+MSG_GA_MODELS_LOADED (//)
+%d models loaded.
+MSG_GA_MODE (//)
+Mode: %s
+MSG_PR_EFFORT_DEFAULT (//)
+Model's default
+MSG_PR_EFFORT_LOW (//)
+low
+MSG_PR_EFFORT_MEDIUM (//)
+medium
+MSG_PR_EFFORT_HIGH (//)
+high
+MSG_PR_CUSTOM (//)
+Custom (OpenAI-compatible)
+MSG_PR_HINT_OLLAMACLOUD (//)
+Large models on the servers of ollama.com. API key: ollama.com/settings/keys
+MSG_PR_HINT_KEY (//)
+API key required. Context 0 = limit of the provider
+MSG_PR_HINT_OLLAMA (//)
+Ollama: no key needed, http://computer:11434/v1. The context is set as num_ctx (more needs more video memory)
+MSG_PR_HINT_CUSTOM (//)
+Key only if the server requires one. Context 0 = unlimited
+MSG_PR_BASE (//)
+Base URL:
+MSG_PR_KEY (//)
+API key:
+MSG_PR_MODEL (//)
+Model:
+MSG_PR_LOAD (//)
+_Load models
+MSG_PR_CONTEXT (//)
+Context (tokens):
+MSG_PR_CONTEXT_HINT (//)
+At 70%, AmiCode summarizes the session automatically
+MSG_PR_EFFORT (//)
+Reasoning effort:
+MSG_PR_EFFORT_HINT (//)
+Thinking costs output tokens; low is usually enough
+MSG_PR_TITLE (//)
+AmiCodeIDE - Settings
+MSG_PR_PROVIDER (//)
+Provider:
+MSG_PR_GROUP (//)
+Access and model
+MSG_PR_STREAM (//)
+Stream answers (show them live)
+MSG_PR_MAXCOST (//)
+Cost limit per task ($):
+MSG_PR_MAXCOST_HINT (//)
+0 = none; only with providers that report costs (OpenRouter)
+MSG_PR_USE (//)
+_Use
+MSG_CANCEL (//)
+_Cancel
+MSG_PR_INFO (//)
+Type a model or \"Load models\" and choose one from the list.
+MSG_PR_LOADING (//)
+Loading models ...
+MSG_PR_LOADED (//)
+%d models - double-click chooses one.
+MSG_SL_HELP (//)
+all commands
+MSG_SL_STATUS (//)
+version, model, project
+MSG_SL_CONTEXT (//)
+size of the conversation
+MSG_SL_TOKENS (//)
+tokens used
+MSG_SL_MODEL (//)
+choose a model (list)
+MSG_SL_COMPACT (//)
+summarize the session
+MSG_SL_PRUNE (//)
+remove old tool output
+MSG_SL_DIFF (//)
+show changes
+MSG_SL_UNDO (//)
+undo the last change
+MSG_SL_RESET (//)
+new session
+MSG_SL_SESSIONS (//)
+earlier sessions
+MSG_SL_RESUME (//)
+resume a session [no]
+MSG_SL_SKILLS (//)
+Amiga knowledge (skills)
+MSG_SL_NEW (//)
+new project (assistant)
+MSG_SL_TOOLCHAINS (//)
+show installed compilers
+MSG_TB_NEW (//)
+_New
+MSG_TB_NEW_HELP (//)
+Create a new project (assistant)
+MSG_TB_OPEN (//)
+_Open
+MSG_TB_OPEN_HELP (//)
+Open another project
+MSG_TB_BUILD (//)
+_Build
+MSG_TB_BUILD_HELP (//)
+Build the project (Execute build, make or [ui] build=)
+MSG_TB_RUN (//)
+_Run
+MSG_TB_RUN_HELP (//)
+Run the program ([ui] run=)
+MSG_TB_SAVE (//)
+Sa_ve
+MSG_TB_SAVE_HELP (//)
+Save the file in the editor
+MSG_TB_DIFF (//)
+_Diff
+MSG_TB_DIFF_HELP (//)
+The agent's changes in this session
+MSG_TB_UNDO (//)
+_Undo
+MSG_TB_UNDO_HELP (//)
+Restore the file the agent changed last
+MSG_TB_STOP (//)
+Sto_p
+MSG_TB_STOP_HELP (//)
+Abort the running task or command
+MSG_TB_RESET (//)
+Ne_w session
+MSG_TB_RESET_HELP (//)
+Discard the history and start over
+MSG_MENU_PROJECT (//)
+Project
+MSG_MENU_NEWPROJ (//)
+New project...
+MSG_MENU_OPENPROJ (//)
+Open project...
+MSG_MENU_RELOAD (//)
+Reload file list
+MSG_MENU_SAVE (//)
+Save file
+MSG_MENU_CLOSE (//)
+Close file
+MSG_MENU_CLEARLOG (//)
+Clear build log
+MSG_MENU_PREFS (//)
+Settings...
+MSG_MENU_SKILLS (//)
+Skills...
+MSG_MENU_GUIDE (//)
+Manual...
+MSG_MENU_ABOUT (//)
+About AmiCodeIDE...
+MSG_MENU_QUIT (//)
+Quit
+MSG_MENU_AGENT (//)
+Agent
+MSG_MENU_SEND (//)
+Send task
+MSG_MENU_STOP (//)
+Stop
+MSG_MENU_DIFF (//)
+Show changes
+MSG_MENU_UNDO (//)
+Undo last change
+MSG_MENU_RESET (//)
+New session
+MSG_MENU_RESUME (//)
+Resume last session
+MSG_MENU_SESSIONS (//)
+Sessions...
+MSG_NEED_MUI (//)
+AmiCodeIDE needs muimaster.library (MUI 3.8 or newer)
+MSG_BUSY_THINKING (//)
+\33c\33bthinking ...
+MSG_TOK_LINE_LIMIT (//)
+%sContext %s/%s (%ld%%)%s | %s in / %s out
+MSG_TOK_LINE (//)
+Context %s | %s in / %s out
+MSG_TOK_CACHE (//)
+ (%s cached)
+MSG_ST_CANT_OPEN (//)
+Cannot open '%s'
+MSG_ST_NOT_TEXT (//)
+'%s' is not a text file or too large
+MSG_ST_BINARY (//)
+'%s' is a binary file
+MSG_ST_BYTES (//)
+%s (%ld bytes)
+MSG_ST_UNSAVED (//)
+%s (unsaved)
+MSG_ST_TOO_MANY (//)
+Too many open files - close one first (Amiga-W)
+MSG_REQ_DISCARD_CANCEL (//)
+_Discard|_Cancel
+MSG_REQ_UNSAVED_N (//)
+\33c%ld file(s) with unsaved changes.\n%s
+MSG_REQ_UNSAVED_CLOSE (//)
+\33c%s has unsaved changes.\nClose anyway?
+MSG_ST_NO_FILE (//)
+No file open
+MSG_ST_SAVED (//)
+%s saved
+MSG_ST_CANT_WRITE (//)
+Cannot write %s
+MSG_ST_NO_LOCATION (//)
+No file/line recognized in this message
+MSG_ST_FILE_LINE (//)
+%s, line %ld
+MSG_AGENT_BUSY (//)
+The agent is still working - Stop or wait
+MSG_ST_CMD_RUNNING (//)
+Command running ...
+MSG_ST_FETCH_MODELS (//)
+Fetching the model list ...
+MSG_ST_AGENT_WORKING (//)
+Agent working ...
+MSG_FINISH_TASK_FIRST (//)
+Finish the running task first
+MSG_REQ_DELSESS_TITLE (//)
+AmiCodeIDE - Delete session
+MSG_REQ_DELSESS_GADS (//)
+_Delete|_Cancel
+MSG_REQ_DELSESS (//)
+Delete session %s for good?
+MSG_REQ_ASK_TITLE (//)
+AmiCodeIDE - Approval
+MSG_REQ_ASK_GADS (//)
+_Allow|A_lways|_Stop task|_Refuse
+MSG_ST_READY (//)
+Ready
+MSG_AGENT_START_FAIL (//)
+\33b! Could not start the agent process\33n\n
+MSG_LOST_SWITCH (//)
+They are lost when switching the project.
+MSG_OUT_PROJECT (//)
+\n\33bProject:\33n 
+MSG_ST_PROJECT_MISSING (//)
+Project %s not found
+MSG_ASL_PROJECT (//)
+Open drawer as project
+MSG_ST_NO_BUILD (//)
+No build found: set [ui] build=... in the configuration
+MSG_ST_NO_RUN (//)
+No run command: set [ui] run=... in %s
+MSG_OPEN_FILES (//)
+Open files
+MSG_BT_EXECUTE (//)
+_Execute
+MSG_BT_SEND (//)
+_Send
+MSG_BT_STOP (//)
+S_top
+MSG_PAGE_AGENT (//)
+Agent
+MSG_PAGE_EDITOR (//)
+Editor
+MSG_PAGE_FILES (//)
+Files
+MSG_PAGE_BUILD (//)
+Build
+MSG_LBL_PROJECT (//)
+Project:
+MSG_LBL_MODE (//)
+Mode:
+MSG_OUT_CREATING (//)
+\n\33bCreating new project ...\33n\n
+MSG_ST_STOP_THEN_SAVE (//)
+Finish the running task first (Stop), then save
+MSG_OUT_PREFS_SAVED (//)
+\n\33bSettings saved.\33n\n
+MSG_OUT_PREFS_USED (//)
+\n\33bSettings used (until restart).\33n\n
+MSG_APP_DESCRIPTION (//)
+Coding agent for AmigaOS
+MSG_REQ_NO_GUI (//)
+Could not build the user interface.\nRequired: TextEditor.mcc, NList.mcc, NListview.mcc, NListtree.mcc\n(Aminet: dev/mui/MCC_TextEditor, dev/mui/MCC_NList)
+MSG_OUT_WELCOME (//)
+\33bAmiCodeIDE %s\33n - type a task below and send it with Return.\n
+MSG_LOST_QUIT (//)
+They are lost when quitting.
+MSG_ST_STOP_SENT (//)
+Stop sent
+MSG_ABOUT_TITLE (//)
+About AmiCodeIDE
+MSG_ABOUT (//)
+\33c\33bAmiCodeIDE %s\33n\nCoding agent for AmigaOS 3.2\n\nModel: %s
+MSG_LOST_NEWPROJ (//)
+They are lost when switching to the new project.
+MSG_OUT_PROJECT_SWITCHED (//)
+\n\33bProject switched:\33n 
+MSG_ST_AGENT_NEWPROJ (//)
+Agent working on the new project ...
+MSG_THEME_LIGHT (//)
+Light
+MSG_THEME_DARK (//)
+Dark
+MSG_THEME_HELP (//)
+Light or dark colors (Settings: Appearance)
+MSG_PR_TAB_PROVIDER (//)
+Provider
+MSG_PR_TAB_APPEARANCE (//)
+Appearance
+MSG_AP_SET (//)
+Edit colors for:
+MSG_AP_DEFAULTS (//)
+Default colo_rs
+MSG_AP_GROUP_AREAS (//)
+Areas
+MSG_AP_BG (//)
+Background
+MSG_AP_FG (//)
+Text
+MSG_AP_EDITOR (//)
+Editor:
+MSG_AP_OUTPUT (//)
+Agent output:
+MSG_AP_LOG (//)
+Build log:
+MSG_AP_LIST (//)
+Lists:
+MSG_AP_INPUT (//)
+Input lines:
+MSG_AP_STATUS (//)
+Status line:
+MSG_AP_WINDOW (//)
+Window and labels:
+MSG_AP_GROUP_SYNTAX (//)
+Syntax highlighting and cursor
+MSG_AP_KEYWORD (//)
+Keywords:
+MSG_AP_COMMENT (//)
+Comments:
+MSG_AP_STRING (//)
+Strings:
+MSG_AP_PREPROC (//)
+Preprocessor:
+MSG_AP_CURSOR (//)
+Cursor:
+MSG_AP_MARK (//)
+Selection:
+MSG_AP_GROUP_FONTS (//)
+Fonts (empty = MUI default)
+MSG_AP_FONT_FIXED (//)
+Fixed width (editor, build log):
+MSG_AP_FONT_TEXT (//)
+Text (agent, lists, input):
+MSG_AP_HINT (//)
+Button text, frame titles and register tabs keep the MUI look.\nFont changes for lists and input lines take effect after restarting AmiCodeIDE.
+MSG_AP_BUTTON (//)
+Buttons (background):

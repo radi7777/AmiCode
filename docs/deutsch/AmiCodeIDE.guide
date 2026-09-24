@@ -1,0 +1,688 @@
+@database AmiCodeIDE.guide
+@$VER: AmiCodeIDE.guide 0.30 (24.09.2026)
+@author "AmiCodeIDE"
+@wordwrap
+@index INDEX
+
+@node MAIN "AmiCodeIDE - Anleitung"
+
+@{b}AmiCodeIDE@{ub} - Programmieren mit einem KI-Agenten, direkt auf dem Amiga
+
+AmiCodeIDE ist eine Entwicklungsumgebung für AmigaOS 3.2 mit eingebautem KI-Agenten. Du beschreibst, was ein Programm tun soll - der Agent schreibt den Quelltext, baut ihn mit dem passenden Compiler, liest die Fehlermeldungen und bessert nach, bis es läuft. Alles passiert auf dem Amiga selbst; es wird kein anderer Rechner gebraucht.
+
+@{b}Inhalt@{ub}
+
+   @{" Einführung            " link INTRO}  Was AmiCodeIDE kann
+   @{" Voraussetzungen       " link REQUIRE}  Was installiert sein muss
+   @{" Installation          " link INSTALL}  Programme und Anleitung kopieren
+   @{" Sprache               " link LANGUAGE}  Deutsch, Englisch und Kataloge
+   @{" Erster Start          " link FIRSTSTART}  In fünf Minuten zum ersten Programm
+   @{" Einstellungen         " link PREFS}  Anbieter, API-Keys und Modell
+   @{" Darstellung           " link APPEARANCE}  Hell/Dunkel, Farben und Schriften
+   @{" Neues Projekt         " link NEWPROJECT}  Der Projekt-Assistent
+   @{" Das Hauptfenster      " link MAINWINDOW}  Projektbaum, Editor, Agent, Build-Log
+   @{" Mit dem Agenten arbeiten " link AGENT}  Gute Aufträge und Beispiele
+   @{" Sitzungen             " link SESSIONS}  Frühere Unterhaltungen fortsetzen
+   @{" Skills                " link SKILLS}  Amiga-Wissen für das Modell
+   @{" Befehle               " link COMMANDS}  /help, /model, /diff, /undo ...
+   @{" Freigaben und Sicherheit " link SAFETY}  Modi, Rückfragen, Sicherungen
+   @{" Sprachen und Werkzeuge " link TOOLCHAINS}  C, BASIC, E, Assembler, Skripte
+   @{" Internetzugriff       " link WEB}  Suchen und Webseiten lesen
+   @{" Kommandozeile amicode " link CLI}  Der Agent in der Shell
+   @{" Konfiguration         " link CONFIG}  Alle Einstellungen der Konfigurationsdatei
+   @{" Projektdateien        " link PROJECTFILES}  AMICODE.md und .amicode/
+   @{" Tastenkürzel          " link KEYS}  Menüs und Tasten
+   @{" Tipps und Fehlerbehebung " link TROUBLE}  Wenn etwas nicht klappt
+   @{" Grenzen               " link LIMITS}  Was (noch) nicht geht
+
+@endnode
+
+@node INTRO "Einführung"
+@{b}Einführung@{ub}
+
+AmiCodeIDE verbindet eine MUI-Entwicklungsumgebung mit einem KI-Agenten. Der Agent arbeitet wie ein Programmierer, der neben dir sitzt: Er liest Dateien, ändert Quelltext, startet den Compiler, liest die Fehler und probiert das Programm aus - und fragt vorher nach, wenn etwas riskant ist.
+
+@{b}Was der Agent kann@{ub}
+
+- Dateien lesen, durchsuchen, anlegen und gezielt ändern
+- Shell-Befehle ausführen, zum Beispiel den Compiler oder ein Build-Skript
+- Compilerfehler auswerten und den Code verbessern
+- im Internet suchen und Webseiten lesen (Dokumentation, Aminet)
+- mit vielen Sprachen umgehen: C, AmiBlitz3, PureBasic, E, Assembler, Lua, Python, ARexx
+
+@{b}Woher die Intelligenz kommt@{ub}
+
+Das Sprachmodell läuft nicht auf dem Amiga, sondern bei einem Anbieter im Netz (OpenAI, OpenRouter) oder auf einem eigenen Rechner im Heimnetz (Ollama). AmiCodeIDE schickt die Unterhaltung per HTTPS dorthin und führt die Werkzeuge, die das Modell aufruft, lokal auf dem Amiga aus. Siehe @{"Einstellungen" link PREFS}.
+
+@endnode
+
+@node REQUIRE "Voraussetzungen"
+@{b}Voraussetzungen@{ub}
+
+- AmigaOS 3.2 oder neuer
+- 68030 oder schneller, Fast RAM (empfohlen 16 MB oder mehr)
+- MUI 3.8 oder neuer (getestet mit MUI 5)
+- MUI-Klassen: TextEditor.mcc, NList.mcc, NListview.mcc, NListtree.mcc (Pflicht); BetterString.mcc, Busy.mcc und TheBar.mcc werden genutzt, wenn vorhanden
+- TCP/IP-Stack (bsdsocket.library, zum Beispiel Roadshow)
+- AmiSSL 5 für verschlüsselte Verbindungen
+- eine korrekt gestellte Systemuhr (sonst lehnt TLS die Zertifikate ab)
+- ein Zugang zu einem Sprachmodell: API-Key von OpenAI oder OpenRouter, oder ein Ollama-Server im Heimnetz
+- mindestens ein Compiler oder Interpreter, siehe @{"Sprachen und Werkzeuge" link TOOLCHAINS}
+
+AmiCodeIDE läuft auf RTG-Bildschirmen und auf den nativen PAL/NTSC-Modes; bei schmalen Bildschirmen werden die Bereiche als Register angeordnet.
+
+@endnode
+
+@node INSTALL "Installation"
+@{b}Installation@{ub}
+
+Kopiere diese Dateien in eine Schublade deiner Wahl, zum Beispiel Work:AmiCodeIDE:
+
+@{code}
+   AmiCodeIDE          das Programm mit Oberfläche
+   AmiCodeIDE.info     sein Icon
+   amicode             der Agent für die Shell (siehe Kommandozeile)
+   AmiCodeIDE.guide    diese Anleitung
+   Skills/             Amiga-Wissen für das Modell (siehe Skills)
+   Catalogs/           Übersetzungen (siehe Sprache)
+   Help/               übersetzte Anleitungen (siehe Sprache)
+@{body}
+
+Die Anleitung und die Schublade Skills müssen neben dem Programm liegen: die HELP-Taste sucht die Anleitung dort, und ohne Skills fehlt dem Modell das Amiga-Wissen (@{"Skills" link SKILLS}).
+
+Deine Projekte legt AmiCodeIDE in der Schublade Projects neben dem Programm an (zum Beispiel Work:AmiCodeIDE/Projects). Sie wird beim ersten Start erzeugt. Einen anderen Ort legst du mit projects= im Abschnitt [ui] der @{"Konfiguration" link CONFIG} fest.
+
+Beim ersten Start legt AmiCodeIDE seine Einstellungen in ENVARC:AmiCode/ an. Die gefundenen Compiler merkt es sich in ENVARC:AmiCode/toolchains.conf.
+
+@endnode
+
+@node LANGUAGE "Sprache"
+@{b}Sprache@{ub}
+
+AmiCodeIDE und amicode sind von Haus aus englisch. Weitere Sprachen kommen als Locale-Kataloge; ein deutscher liegt bei.
+
+Die Sprache richtet sich nach den Locale-Voreinstellungen der Workbench. Steht dort Deutsch als bevorzugte Sprache, findet AmiCodeIDE Catalogs/deutsch/AmiCode.catalog neben dem Programm (oder in LOCALE:Catalogs/deutsch/) und zeigt Menüs, Fenster und Meldungen auf Deutsch. Die HELP-Taste öffnet dann diese Anleitung aus Help/deutsch/.
+
+Unabhängig von den Locale-Voreinstellungen wählst du die Sprache mit einer Umgebungsvariablen:
+
+@{code}
+   SetEnv SAVE AmiCodeLanguage deutsch     Deutsch
+   SetEnv SAVE AmiCodeLanguage english     Englisch
+   UnSetEnv SAVE AmiCodeLanguage           wie in den Locale-Voreinstellungen
+@{body}
+
+Der Agent antwortet in der Sprache, in der du deine Aufträge schreibst - egal welcher Katalog aktiv ist.
+
+@endnode
+
+@node FIRSTSTART "Erster Start"
+@{b}Erster Start - in fünf Minuten zum ersten Programm@{ub}
+
+@{b}1. Starten@{ub}
+Doppelklick auf das Icon. AmiCodeIDE öffnet das zuletzt benutzte Projekt; beim allerersten Start erscheint die Projektauswahl bzw. gleich der Projekt-Assistent. In der Shell kannst du auch ein Projekt angeben:
+@{code}
+   Run >NIL: AmiCodeIDE Work:AmiCodeIDE/Projects/meinprojekt
+@{body}
+
+@{b}2. Zugang einrichten@{ub}
+Menü @{i}Projekt / Einstellungen...@{ui} (Amiga-E). Anbieter wählen, API-Key eintragen, @{i}Modelle laden@{ui} klicken, ein Modell per Doppelklick wählen, @{i}Speichern@{ui}. Details: @{"Einstellungen" link PREFS}.
+
+@{b}3. Projekt anlegen@{ub}
+Knopf @{i}Neu@{ui} in der Werkzeugleiste (oder Amiga-N). Namen, Sprache und Zielsystem wählen und beschreiben, was das Programm tun soll. Mit @{i}Direkt loslegen@{ui} beginnt der Agent sofort. Details: @{"Neues Projekt" link NEWPROJECT}.
+
+@{b}4. Zuschauen und mitarbeiten@{ub}
+Im Agent-Bereich rechts siehst du, was der Agent tut. Fragt er nach einer Freigabe, entscheidest du. Mit @{i}Bauen@{ui} und @{i}Starten@{ui} in der Werkzeugleiste probierst du selbst aus. Fehlerzeilen im Build-Log führen per Doppelklick in die richtige Zeile.
+
+@{b}5. Weitermachen@{ub}
+Schreibe einfach den nächsten Auftrag in die Eingabezeile: "Füge eine Option für ... hinzu", "Warum stürzt das Programm bei ... ab?". Der Agent kennt den bisherigen Verlauf.
+
+@endnode
+
+@node PREFS "Einstellungen"
+@{b}Einstellungen@{ub} (Menü Projekt / Einstellungen..., Amiga-E)
+
+Hier legst du fest, welches Sprachmodell der Agent benutzt.
+
+@{b}Anbieter@{ub}
+
+@{code}
+   OpenAI       Modelle von OpenAI. API-Key von platform.openai.com
+   OpenRouter   Hunderte Modelle mit einem Key, auch Claude,
+                Gemini, Qwen, DeepSeek. Key von openrouter.ai
+   Ollama       Eigene Modelle auf einem PC im Heimnetz, ohne Key.
+                Basis-URL z. B. http://192.168.1.10:11434/v1
+   Ollama Cloud Große offene Modelle (Qwen, Kimi, GLM, DeepSeek,
+                gpt-oss) auf den Servern von ollama.com.
+                API-Key von ollama.com/settings/keys
+   Eigener      Jeder Server mit OpenAI-kompatibler Schnittstelle
+@{body}
+
+@{b}Felder@{ub}
+
+- @{i}Basis-URL@{ui}: Adresse der Schnittstelle, endet meist auf /v1
+- @{i}API-Key@{ui}: der Zugangsschlüssel; er wird verdeckt angezeigt
+- @{i}Modell@{ui}: Name des Modells. Mit @{i}Modelle laden@{ui} holt AmiCodeIDE die verfügbaren Modelle vom Anbieter; ein Doppelklick übernimmt eines. Bei OpenAI werden nur Chat-Modelle, bei OpenRouter nur Modelle mit Werkzeug-Unterstützung angeboten.
+- @{i}Kontext (Tokens)@{ui}: wie viel Unterhaltung das Modell auf einmal sieht. Bei Ollama wird der Wert dem Server mitgegeben (Standard 32768; mehr braucht mehr Grafikspeicher). Bei OpenAI und OpenRouter bedeutet 0 "Grenze des Anbieters".
+- @{i}Denkaufwand@{ui}: wie gründlich ein Modell vor der Antwort nachdenkt. Nachdenken wird als Ausgabe berechnet (bei Claude Opus 20 Dollar pro Million Tokens). @{i}niedrig@{ui} reicht für die meisten Programmieraufgaben und ist bei OpenRouter voreingestellt; @{i}Standard des Modells@{ui} schickt nichts mit. Bei OpenAI nur für Modelle wählen, die nachdenken können (gpt-5, o-Serie), andere lehnen die Anfrage sonst ab.
+- @{i}Antworten streamen@{ui}: der Text erscheint schon während das Modell schreibt
+- @{i}Kostenlimit pro Auftrag@{ui}: hat ein Auftrag so viele Dollar gekostet, hält der Agent an (Standard 2.00, 0 = kein Limit). Mit "weiter" setzt du fort. Das funktioniert nur bei Anbietern, die die Kosten mitteilen - derzeit OpenRouter.
+
+@{b}Wenn der Kontext voll läuft@{ub}: Erreicht eine Anfrage 70 Prozent des eingestellten Kontexts, fasst AmiCodeIDE die Sitzung automatisch zu einer Arbeitsnotiz zusammen und arbeitet an der laufenden Aufgabe weiter - nichts geht verloren, und das Modell verliert nicht den Faden. Ganz neu beginnst du mit @{i}Neue Sitzung@{ui} bzw. /reset.
+
+@{b}Speichern, Verwenden, Abbrechen@{ub}
+
+@{i}Speichern@{ui} gilt dauerhaft (ENVARC:), @{i}Verwenden@{ui} nur bis zum Neustart des Amiga. Beim Übernehmen startet der Agent mit den neuen Einstellungen neu; die laufende Unterhaltung geht weiter.
+
+@{b}Welches Modell?@{ub}
+
+Getestet mit derselben Aufgabe (analoge Uhr mit Zeigern, dann zur MUI-Anwendung umgebaut; Skills auf @{i}Automatisch@{ui}, ausser wo vermerkt):
+
+@{code}
+ moonshotai/kimi-k2.7-code   Sieger. Laedt Skills selbst, beide
+ (OpenRouter)                Aufgaben auf Anhieb richtig, 8-10
+                             Schritte, ca. $0.02-0.04 pro Aufgabe.
+ gpt-5.6-sol (OpenAI)        Laedt Skills selbst, beide Aufgaben
+                             richtig, aehnliche Kosten wie Kimi
+                             (Schaetzung - OpenAI meldet keine
+                             Kosten pro Anfrage).
+ gpt-5.6-luna (OpenAI)       Auch erfolgreich, mehr Umwege als
+                             sol, aber sehr billig (Schaetzung
+                             ca. $0.01 pro Aufgabe).
+ qwen3.8:27b (Ollama,        Kostenlos, aber Skills muessen auf
+ lokal, kostenlos)           "Immer" stehen (laedt sie sonst
+                             nicht zuverlaessig selbst). Langsamer,
+                             brauchte einen Korrekturhinweis
+                             (Zeiger spiegelverkehrt).
+@{body}
+
+Nicht empfohlen: qwen3-coder (verzaehlt sich bei MUI-@{i}End@{ui}/TAG_DONE, dreht sich im Kreis), gemma4 (zu schwach fuer diese Aufgaben), nemotron-3-ultra ueber Ollama Cloud (laedt die Skills nicht und schreibt einen fehlerhaften MUI-Dispatcher - Absturzgefahr, nicht gestartet).
+
+@{b}Fazit@{ub}: moonshotai/kimi-k2.7-code ueber OpenRouter als Standard, qwen3.8:27b lokal (mit Skills=always) als kostenlose Alternative. Bei OpenAI nur Modelle nehmen, die Werkzeuge auf /chat/completions unterstuetzen - AmiCodeIDE erkennt und behebt den haeufigsten Sonderfall (reasoning_effort) automatisch.
+
+Ein längerer Auftrag schickt schnell eine Million Tokens - grosse Denkmodelle wie Claude Opus sind entsprechend teurer als Sonnet oder Haiku. @{"/tokens" link COMMANDS} zeigt den Verbrauch.
+
+@{b}Nur für diese Sitzung wechseln@{ub}: @{"/model" link COMMANDS} in der Eingabezeile.
+
+Die Werte stehen in ENVARC:AmiCode/amicode.conf, siehe @{"Konfiguration" link CONFIG}. Diese Datei enthält deine API-Keys - gib sie nicht weiter.
+
+@endnode
+
+@node APPEARANCE "Darstellung"
+@{b}Darstellung - Hell, Dunkel, Farben und Schriften@{ub}
+
+@{b}Umschalten@{ub}: Das Auswahlfeld rechts oben im Hauptfenster schaltet zwischen @{i}Hell@{ui} und @{i}Dunkel@{ui}. Beim Wechsel schließt und öffnet sich das Fenster kurz. AmiCodeIDE merkt sich die Wahl (ENVARC:AmiCode/theme).
+
+@{b}Einstellungen / Darstellung@{ub} (Menü Projekt / Einstellungen..., Amiga-E, Reiter Darstellung):
+
+- @{i}Farben bearbeiten für@{ui}: Hell und Dunkel haben je einen eigenen Farbsatz. Hier wählst du, welchen du bearbeitest; welcher angezeigt wird, entscheidet der Umschalter im Hauptfenster.
+- @{i}Bereiche@{ui}: Hintergrund und Schrift für Editor, Agent-Ausgabe, Build-Log, Listen (Projektbaum, offene Dateien), Eingabezeilen, Statuszeile und das Fenster mit seinen Beschriftungen. Bei Knöpfen, Werkzeugleiste und Auswahlfeldern geht nur der Hintergrund - ihre Schrift bleibt in der MUI-Farbe, im Dunkel-Modus also eine helle Knopffarbe wählen.
+- @{i}Syntaxfarben und Cursor@{ui}: Farben für Schlüsselwörter, Kommentare, Strings und Präprozessorzeilen in C- und Assembler-Dateien, dazu Cursor und Markierung.
+- @{i}Standardfarben@{ui} stellt die eingebauten Farben des gerade bearbeiteten Satzes wieder her.
+- @{i}Schriften@{ui}: eine Festbreitenschrift für Editor und Build-Log und eine Schrift für Agent-Ausgabe, Listen und Eingabezeilen, z. B. XEN/11. Leer = die Schrift aus den MUI-Einstellungen. Editor und Agent-Ausgabe übernehmen eine neue Schrift sofort, Listen und Eingabezeilen nach einem Neustart von AmiCodeIDE.
+
+Jede Farbe wählst du mit dem MUI-Farbwähler: MUI-Pen, Farbregister oder beliebige RGB-Farbe.
+
+@{b}Grenzen von MUI 3.8@{ub}: Die Schrift von Knöpfen, Rahmentiteln und Registerreitern bleibt wie in den MUI-Einstellungen. Die Farben gelten für das Hauptfenster; andere Fenster färben nur ihre Listen.
+
+@endnode
+
+@node NEWPROJECT "Neues Projekt"
+@{b}Der Projekt-Assistent@{ub} (Knopf Neu, Amiga-N oder /new)
+
+Der Assistent fragt alles ab, was der Agent für den Start braucht:
+
+- @{b}Name@{ub}: wird Name des Verzeichnisses und des Programms. Erlaubt sind Buchstaben, Ziffern, _ - und Punkt.
+- @{b}Wird angelegt in@{ub}: alle Projekte liegen im Projektordner Projects neben dem Programm (anderer Ort: projects= in der @{"Konfiguration" link CONFIG}). Ein Name darf nur einmal vorkommen.
+- @{b}Sprache / Werkzeug@{ub}: alle auf diesem Amiga gefundenen Compiler und Interpreter, siehe @{"Sprachen und Werkzeuge" link TOOLCHAINS}.
+- @{b}Eigenes Projekt (ohne Vorgaben)@{ub}: der Agent wählt Sprache und Compiler selbst passend zur Aufgabe, legt Quelltext und Build-Skript an und trägt Bauen und Starten für die Werkzeugleiste ein. Dafür braucht er eine Beschreibung der Aufgabe.
+- @{b}Programmart@{ub}: Shell-Programm, Fenster-Programm (Intuition/GadTools), MUI-Anwendung oder Sonstiges
+- @{b}CPU und System mindestens@{ub}: der Agent schreibt Code, der darauf läuft
+- @{b}Was soll das Programm tun?@{ub}: je genauer, desto besser, siehe @{"Mit dem Agenten arbeiten" link AGENT}
+- @{b}Direkt loslegen@{ub}: die Beschreibung geht sofort als erster Auftrag an den Agenten
+
+Nach @{i}Anlegen@{ui} entsteht das Projekt mit einem Hallo-Welt-Programm, einem build-Skript (das alle nötigen Assigns selbst setzt), der Datei AMICODE.md mit allen Angaben und den Projekteinstellungen. AmiCodeIDE wechselt in das neue Projekt, und mit @{i}Direkt loslegen@{ui} beginnt der Agent sofort.
+
+@endnode
+
+@node MAINWINDOW "Das Hauptfenster"
+@{b}Das Hauptfenster@{ub}
+
+@{code}
+ +-----------------------------------------------------------+
+ | Neu Öffnen | Bauen Starten | Speichern Diff Undo | Stop  |
+ | Projekt: ...        Modell: ...           Modus: [Project] |
+ +-----------+--------------------------+--------------------+
+ | Projekt-  | Editor                   | Agent              |
+ | baum      |                          |                    |
+ |-----------|                          |                    |
+ | Offene    |                          | [Eingabe] Senden   |
+ | Dateien   |                          |           Stop     |
+ +-----------+--------------------------+--------------------+
+ | Build-Log                                                 |
+ | 1> [eigener Befehl]                          Ausführen    |
+ +-----------------------------------------------------------+
+ | Status                         Kontext 2.5k/32.7k (7%) ... |
+ +-----------------------------------------------------------+
+@{body}
+
+@{b}Werkzeugleiste@{ub}: Neu (Projekt-Assistent), Öffnen (anderes Projekt), Bauen, Starten, Speichern, Diff, Undo, Stop, Neue Sitzung.
+
+@{b}Projekt öffnen@{ub} (Knopf Öffnen oder Amiga-O): zeigt alle Projekte im Projektordner; Doppelklick öffnet eines. @{i}Andere Schublade...@{ui} öffnet ausnahmsweise eine beliebige Schublade als Projekt. Beim nächsten Start öffnet AmiCodeIDE automatisch das zuletzt benutzte Projekt.
+@{i}Bauen@{ui} erkennt Execute build, make oder smake selbst; @{i}Starten@{ui} nutzt den Eintrag run= der Projekteinstellungen.
+
+@{b}Projektbaum@{ub}: nur das aktuelle Projekt - oben sein Name, darunter die Dateien, Ordner zum Aufklappen. Doppelklick öffnet eine Datei im Editor.
+
+@{b}Offene Dateien@{ub}: ein Klick wechselt die Datei. Ein * markiert ungespeicherte Änderungen; sie bleiben beim Wechsel erhalten. Amiga-W schließt die angezeigte Datei.
+
+@{b}Editor@{ub}: C- und Assembler-Quelltext wird hervorgehoben (Schlüsselwörter fett, Kommentare kursiv). Beim Speichern (Amiga-S) wird nur der reine Text geschrieben; Tabs bleiben erhalten.
+
+@{b}Agent@{ub}: Hier gibst du Aufträge ein und siehst, was der Agent tut: Denkschritte, Werkzeug-Aufrufe (mit Diff bei Änderungen) und seine Antworten. Ein / in der Eingabe öffnet die Liste der @{"Befehle" link COMMANDS}.
+
+@{b}Modus@{ub}: legt fest, wie oft der Agent fragt, siehe @{"Freigaben und Sicherheit" link SAFETY}.
+
+@{b}Build-Log@{ub}: die Ausgabe jedes Befehls, egal ob vom Agenten oder von dir. Fehler und Warnungen sind fett; ein Doppelklick auf eine Fehlermeldung öffnet die Datei in der richtigen Zeile. In der Zeile darunter kannst du selbst Befehle eingeben. Sie arbeitet wie eine kleine Shell: @{i}CD verzeichnis@{ui} wechselt das Verzeichnis für die folgenden Befehle (links steht, wo du gerade bist; CD ohne Angabe zeigt den vollen Pfad), Cursor hoch/runter holt frühere Befehle zurück. Der Agent arbeitet davon unabhängig immer im Projektverzeichnis.
+
+@{b}Statuszeile@{ub}: links Meldungen der IDE, rechts der Tokenstand. @{i}Kontext@{ui} ist die Größe der letzten Anfrage im Verhältnis zum eingestellten Kontext des Anbieters (siehe @{"Einstellungen" link PREFS}); ab 70% erscheint die Anzeige fett, dann fasst der Agent die Sitzung automatisch zusammen. @{i}Summe@{ui} zählt alle Tokens seit dem Start des Agenten (ein = gesendet, aus = Antworten), bei Anbietern mit Prompt-Cache auch den Anteil aus dem Cache. Bei OpenAI und OpenRouter kosten die Tokens Geld. Meldet der Anbieter die Kosten (OpenRouter), steht ganz rechts fett der Betrag in Dollar seit dem Start des Agenten.
+
+Auf schmalen Bildschirmen (unter 800 Punkten Breite) liegen Agent, Editor, Dateien und Build als Register übereinander.
+
+@endnode
+
+@node AGENT "Mit dem Agenten arbeiten"
+@{b}Mit dem Agenten arbeiten@{ub}
+
+@{b}Gute Aufträge@{ub}
+
+Beschreibe das Ziel, nicht jeden Schritt. Nenne, was wichtig ist: Eingaben, Ausgaben, Grenzen. Beispiele:
+
+@{code}
+  Schreibe ein Shell-Programm, das alle Dateien eines
+  Verzeichnisses mit Größe auflistet und am Ende die Summe
+  ausgibt. Das Verzeichnis kommt als Argument (ReadArgs).
+
+  Baue das Projekt und behebe alle Compilerfehler.
+
+  Das Programm stürzt ab, wenn die Datei leer ist.
+  Finde den Fehler und behebe ihn.
+
+  Füge eine Option QUIET hinzu, die alle Ausgaben unterdrückt.
+
+  Suche im Internet, wie man mit der asl.library einen
+  Dateirequester öffnet, und baue ihn ein.
+@{body}
+
+@{b}Was im Hintergrund passiert@{ub}
+
+Der Agent arbeitet in Schritten: Er denkt nach, ruft ein Werkzeug auf (Datei lesen, ändern, Befehl ausführen ...), sieht das Ergebnis und macht weiter, bis die Aufgabe erledigt ist. Nach höchstens 30 Schritten hält er an; mit einem weiteren Auftrag oder "mach weiter" setzt er fort.
+
+@{b}Regeln für ein Projekt@{ub}
+
+Alles, was der Agent immer beachten soll, gehört in die Datei AMICODE.md im Projekt, zum Beispiel "Kommentare auf Deutsch", "keine Fließkommazahlen" oder "nur Funktionen aus OS 3.1". Siehe @{"Projektdateien" link PROJECTFILES}.
+
+@{b}Abbrechen@{ub}: Knopf Stop oder CTRL-C bricht den laufenden Befehl bzw. Auftrag ab.
+
+@{b}Lange Sitzungen@{ub}: Die Unterhaltung wird mit jedem Schritt länger (und teurer). @{"/compact" link COMMANDS} fasst sie zusammen, @{"/reset" link COMMANDS} beginnt neu.
+
+@endnode
+
+@node SESSIONS "Sitzungen"
+@{b}Sitzungen@{ub}
+
+Eine Sitzung ist die Unterhaltung mit dem Agenten samt aller Werkzeug-Ergebnisse. Sie wird laufend in amicode.session im Projekt gespeichert.
+
+@{b}Nichts geht verloren@{ub}: Beginnst du eine neue Sitzung (@{i}Neue Sitzung@{ui}, /reset, oder den ersten Auftrag nach dem Start), wandert die alte Sitzung ins Archiv .amicode/sessions/. Der Dateiname ist der Zeitpunkt ihrer letzten Änderung.
+
+@{b}Fenster Sitzungen@{ub} (Menü Agent, Amiga-J): oben die aktuelle Sitzung, darunter die archivierten, neueste zuerst, jeweils mit Datum, Größe und dem ersten Auftrag als Titel.
+
+   @{i}Fortsetzen@{ui} (oder Doppelklick) - die Sitzung laden; die aktuelle wird vorher archiviert. Die letzten Aufträge und Antworten erscheinen im Agent-Bereich, dann einfach weiterschreiben.
+   @{i}Löschen@{ui} - die archivierte Sitzung nach Rückfrage endgültig entfernen.
+
+@{b}Letzte Sitzung fortsetzen@{ub} (Menü Agent) lädt amicode.session, zum Beispiel nach einem Absturz.
+
+In der Eingabezeile und in der Shell gibt es dasselbe als Befehle: /sessions, /resume nr und /sessions delete nr.
+
+@endnode
+
+@node SKILLS "Skills"
+@{b}Skills - Amiga-Wissen für das Modell@{ub} (Menü Projekt / Skills..., Amiga-K)
+
+Große Modelle wie Claude oder GPT kennen den Amiga recht gut. Lokale Modelle wie qwen haben davon kaum etwas gelernt: sie erfinden Unix-Befehle, die es nicht gibt, oder rätseln, wie man eine Library öffnet. Skills sind kurze Wissensdateien, die dem Modell das Nötige erklären.
+
+@{b}Mitgeliefert@{ub}
+
+@{code}
+ amigados   AmigaDOS-Befehle, Pfade, Muster, Skripte
+            (statt Unix: List, Copy, Search, Execute ...)
+ c-amiga    C auf AmigaOS 3.x: Libraries, Typen, Dateien,
+            Fenster, Signale, Compiler
+ mui        MUI 3.8: Objekte, Notifies, Hauptschleife
+@{body}
+
+@{b}Modus je Skill@{ub}
+
+   @{i}Immer@{ui} - der Inhalt steht fest im Auftrag an das Modell. Richtig für lokale Modelle, die sich nicht zuverlässig selbst Wissen holen. Kostet pro Skill etwa 1000 Tokens Kontext.
+   @{i}Automatisch@{ui} (Standard) - das Modell sieht nur Titel und Beschreibung und lädt den Skill bei Bedarf mit dem Werkzeug read_skill. Spart Tokens bei großen Modellen.
+   @{i}Aus@{ui} - der Skill wird nicht angeboten.
+
+Wähle im Fenster einen Skill aus, stelle den Modus mit den Knöpfen ein und drücke @{i}Speichern@{ui}. Der Agent startet dann mit dem neuen Wissen neu; die laufende Unterhaltung geht weiter. In der Eingabezeile zeigt /skills den Stand.
+
+@{b}Eigene Skills@{ub}
+
+Ein Skill ist eine Textdatei name.md im Ordner Skills neben AmiCodeIDE (für alle Projekte) oder in .amicode/skills/ im Projekt (nur dort, hat Vorrang). Aufbau:
+
+@{code}
+ # Titel
+ Description: Ein Satz, wann das Modell den Skill braucht.
+
+ Inhalt: knappe Regeln und Beispiele, am besten englisch.
+@{body}
+
+Halte Skills kurz (höchstens einige KB): alles, was darin steht, geht bei jedem Schritt an das Modell.
+
+@endnode
+
+@node COMMANDS "Befehle"
+@{b}Befehle@{ub} (in der Agent-Eingabe; ein / zeigt die Liste)
+
+@{code}
+ /help           alle Befehle
+ /status         Version, Anbieter, Modell, Modus, Projekt
+ /context        Größe der Unterhaltung
+ /tokens         verbrauchte Tokens in dieser Sitzung
+ /model          verfügbare Modelle zeigen und für diese
+                 Sitzung wechseln (/model name)
+ /compact [fokus] Unterhaltung zusammenfassen und damit
+                 weitermachen (spart Tokens)
+ /prune          alte Werkzeug-Ausgaben entfernen
+ /diff           alle Änderungen dieser Sitzung zeigen
+ /undo           zuletzt geänderte Datei zurücksetzen
+ /reset          neue Sitzung beginnen (die alte wird archiviert)
+ /sessions       frühere Sitzungen zeigen
+                 (/sessions delete nr löscht eine)
+ /resume [nr]    letzte bzw. archivierte Sitzung fortsetzen
+ /skills         Amiga-Wissen (Skills) und ihr Modus
+ /new            Projekt-Assistent öffnen
+ /toolchains     gefundene Compiler zeigen
+                 (/toolchains scan sucht neu)
+ !befehl         Shell-Befehl selbst ausführen; die Ausgabe
+                 geht mit dem nächsten Auftrag an den Agenten
+ !!befehl        Shell-Befehl nur für dich ausführen
+@{body}
+
+In der Liste wählst du mit den Pfeiltasten und übernimmst mit Return. Nach /model erscheinen die verfügbaren Modelle; Weitertippen filtert, zum Beispiel /model claude.
+
+@endnode
+
+@node SAFETY "Freigaben und Sicherheit"
+@{b}Freigaben und Sicherheit@{ub}
+
+Der Amiga hat keinen Speicherschutz und kein Papierkorb-Undo. Deshalb achtet AmiCodeIDE genau darauf, was der Agent darf.
+
+@{b}Modi@{ub} (Auswahl oben rechts)
+
+@{code}
+ Safe     fragt vor jeder Änderung, jedem Befehl und jedem
+          Internetzugriff
+ Project  Änderungen im Projekt und bekannte Befehle (Compiler,
+          make, Execute von Skripten, List ...) ohne Rückfrage;
+          alles andere wird gefragt  (empfohlen)
+ Full     alles im Projekt ohne Rückfrage
+@{body}
+
+@{b}Die Freigabe-Rückfrage@{ub} zeigt den vollständigen Pfad und bei Änderungen den Diff. @{i}Erlauben@{ui} gilt einmal, @{i}Immer@{ui} für alle weiteren Aufrufe dieses Werkzeugs in der Sitzung, @{i}Auftrag stoppen@{ui} beendet den Auftrag, @{i}Ablehnen@{ui} (auch Esc) verweigert.
+
+@{b}Immer gefragt - in jedem Modus@{ub}
+
+- Schreiben außerhalb des Projektverzeichnisses
+- Schreiben in SYS:, C:, S:, LIBS:, DEVS: und L:
+- Format, Install, Relabel, Assign, Mount, AddBuffers
+- Delete ... ALL
+- selbst gebaute Programme starten, die nicht in der Liste der erlaubten Befehle stehen
+
+@{b}Veraltungsschutz@{ub}: Der Agent darf eine Datei nur ändern, wenn er sie in dieser Sitzung gelesen hat und sie sich seitdem nicht geändert hat. So überschreibt er nichts, was du inzwischen im Editor bearbeitet hast.
+
+@{b}Sicherungen und Undo@{ub}: Vor der ersten Änderung einer Datei legt AmiCodeIDE eine Kopie in .amicode/backups/ an. @{i}Undo@{ui} (oder /undo) holt den Stand vor der ersten Änderung dieser Sitzung zurück, @{i}Diff@{ui} (oder /diff) zeigt alle Änderungen.
+
+@{b}Protokoll@{ub}: Jede Aktion des Agenten steht mit Uhrzeit in .amicode/audit.log - geschrieben vor der Ausführung, damit auch nach einem Absturz nachvollziehbar bleibt, was passiert ist.
+
+@{b}Abstürze@{ub}: Ein fehlerhaftes Testprogramm kann den Amiga anhalten. Speichere offene Dateien vor dem Starten. Nach einem Neustart setzt Letzte Sitzung fortsetzen (Menü Agent) die Unterhaltung fort.
+
+@endnode
+
+@node TOOLCHAINS "Sprachen und Werkzeuge"
+@{b}Sprachen und Werkzeuge@{ub}
+
+AmiCodeIDE sucht installierte Compiler und Interpreter selbst (auf allen Laufwerken in Developer/, Dev/, Programming/ oder direkt im Hauptverzeichnis). /toolchains zeigt sie, /toolchains scan sucht neu.
+
+@{code}
+ vbcc       C mit VBCC (+ NDK 3.2)
+ sasc       C mit SAS/C 6
+ gcc        C mit gcc 2.95 (ADE), ohne ixemul
+ amiblitz   BASIC mit AmiBlitz3 (Kommandozeilen-Compiler)
+ purebasic  BASIC mit PureBasic 4
+ amigae     E mit EC 3.3
+ vasm       68000-Assembler mit vasm
+ lua        Lua 5.0
+ python     Python 2.0
+ arexx      ARexx
+ custom     eigenes Projekt, der Agent wählt selbst
+@{body}
+
+Jedes Projekt bekommt ein build-Skript, das die Assigns und Pfade seines Compilers bei jedem Lauf selbst setzt - Compiler stören sich so nicht gegenseitig.
+
+@{b}Besonderheiten@{ub}, die der Agent aus AMICODE.md kennt:
+
+- AmiBlitz3 meldet auch bei Fehlern Returncode 0; ob der Build geklappt hat, steht in der Ausgabe ("0 errors").
+- gcc wird immer mit -noixemul benutzt.
+- PureBasic 4.00 braucht kein OpenConsole().
+- E und PureBasic nennen bei Fehlern keine Datei; der Doppelklick im Build-Log springt dann in die Hauptdatei.
+
+AMOS Pro wird nicht unterstützt: Quelltext und Compiler liegen dort nur in binärer Form vor.
+
+@endnode
+
+@node WEB "Internetzugriff"
+@{b}Internetzugriff@{ub}
+
+Der Agent kann im Internet suchen (web_search, über DuckDuckGo) und Webseiten als Text lesen (fetch_url). So schlägt er selbst Dokumentation, Autodocs, Aminet-Beschreibungen oder Fehlermeldungen nach. Das funktioniert mit jedem Anbieter, auch mit Ollama.
+
+- Im Modus Safe fragt jeder Zugriff nach.
+- Mit web=no im Abschnitt [agent] der Konfiguration ist der Internetzugriff ganz aus.
+- Jede Suche und jeder Abruf steht im Protokoll.
+
+Webseiten sind fremder Text. Der Agent ist angewiesen, Anweisungen aus Webseiten nie zu befolgen und keine privaten Daten in Adressen oder Suchanfragen zu schreiben. Seiten, die ihren Inhalt nur per JavaScript aufbauen, bleiben leer.
+
+@endnode
+
+@node CLI "Kommandozeile amicode"
+@{b}Der Agent in der Shell: amicode@{ub}
+
+amicode ist derselbe Agent ohne Oberfläche. Er arbeitet im aktuellen Verzeichnis.
+
+@{code}
+ amicode [MODE safe|project|full] [STEPS n] [CONFIG datei]
+         [RESUME] [auftrag]
+
+ CD Work:Projekte/meinprog
+ amicode Baue das Projekt und behebe alle Fehler
+ amicode                      interaktiv, /help zeigt die Befehle
+ amicode RESUME               unterbrochene Sitzung fortsetzen
+ amicode /sessions            frühere Sitzungen zeigen
+ amicode "/resume 2"          Sitzung Nr. 2 laden
+ amicode "/new vbcc Work:Projekte/neu"
+@{body}
+
+Rückfragen beantwortest du mit j (ja), n (nein), i (immer) oder q (Auftrag abbrechen); Return bedeutet nein. Die englischen Buchstaben y und a gehen ebenfalls. CTRL-C bricht den laufenden Befehl ab.
+
+@endnode
+
+@node CONFIG "Konfiguration"
+@{b}Konfiguration@{ub} (ENVARC:AmiCode/amicode.conf)
+
+Die meisten Werte stellst du bequem im @{"Einstellungsfenster" link PREFS} ein. Alle Schlüssel:
+
+@{code}
+ [provider]
+ active=openai        openai, openrouter, ollama, ollamacloud, custom
+ stream=yes           Antworten live anzeigen
+
+ [openai] / [openrouter] / [ollama] / [ollamacloud] / [custom]
+ base=...             Basis-URL, z. B. https://api.openai.com/v1
+ api_key=...          API-Key (bei Ollama leer)
+ model=...            Modell
+ context=32768        Kontext in Tokens (0 = Grenze des Anbieters);
+                      ab 70% wird automatisch zusammengefasst
+ effort=low           Denkaufwand: low, medium, high, default
+                      (OpenRouter: Standard low, sonst default)
+ [ollama] zusätzlich:
+ think=yes|no         "Nachdenken" von Modellen wie qwen3 ein/aus
+ api=native|openai    Schnittstelle (native kennt die Kontextgröße)
+
+ [agent]
+ mode=project         safe, project, full
+ max_steps=30         Schritte pro Auftrag
+ cmd_timeout=600      Sekunden pro Befehl
+ stack=200000         Stack für Befehle
+ allow=...            Befehle ohne Rückfrage im Modus project
+ web=yes              Internetzugriff
+ max_context=60000    ab dieser Größe (Bytes) alte Ausgaben kürzen
+                      (dann auf die Hälfte, damit der Cache hält)
+ max_cost=2.00        Kostenlimit pro Auftrag in Dollar (0 = keins)
+
+ [skills]
+ amigados=auto        always, auto oder off (je Skill)
+ session=amicode.session  Sitzungsdatei (none = keine)
+
+ [theme]              Farben und Schriften (Reiter Darstellung)
+ light.editor.bg=...  MUI-Pen-Spec, z. B. rFFFFFFFF,FFFFFFFF,FFFFFFFF
+ dark.editor.fg=...   (Bereiche: editor, output, log, list, input,
+                      status, window, button; .bg / .fg)
+ dark.keyword=...     keyword, comment, string, preproc, cursor, mark
+ font_fixed=XEN/11    Festbreitenschrift (leer = MUI-Standard)
+ font_text=           Schrift für Agent, Listen, Eingabe
+
+ [ui]
+ layout=auto          auto, narrow (Register), wide
+ projects=...         Projektordner (Standard: Projects neben dem Programm)
+ build=... / run=...  Bauen/Starten, falls nicht im Projekt
+@{body}
+
+Die gefundenen Compiler stehen in ENVARC:AmiCode/toolchains.conf. Die Sprache wählt die Variable AmiCodeLanguage, siehe @{"Sprache" link LANGUAGE}.
+
+@endnode
+
+@node PROJECTFILES "Projektdateien"
+@{b}Projektdateien@{ub}
+
+@{b}AMICODE.md@{ub} - Regeln und Wissen für den Agenten. Er liest die Datei bei jedem Auftrag. Der Projekt-Assistent schreibt Werkzeug, Build-Befehl, Zielsystem und Aufgabe hinein; ergänze eigene Regeln einfach darunter.
+
+@{b}build@{ub} - AmigaDOS-Skript, das das Programm baut (Execute build).
+
+@{b}.amicode/settings@{ub} - Projekteinstellungen für die Werkzeugleiste:
+@{code}
+ [ui]
+ build=Execute build   Befehl für den Knopf Bauen
+ run=meinprog          Befehl für den Knopf Starten
+ main=meinprog.c       Hauptdatei (für Fehlersprünge)
+@{body}
+
+@{b}.amicode/backups/@{ub} - Sicherungen vor Änderungen des Agenten.
+@{b}.amicode/audit.log@{ub} - Protokoll aller Aktionen.
+@{b}amicode.session@{ub} - die laufende Unterhaltung (für "Sitzung fortsetzen").
+@{b}.amicode/sessions/@{ub} - frühere Sitzungen, siehe @{"Sitzungen" link SESSIONS}.
+
+@endnode
+
+@node KEYS "Tastenkürzel"
+@{b}Tastenkürzel@{ub}
+
+@{code}
+ Amiga-N   Neues Projekt (Assistent)
+ Amiga-O   Projekt öffnen
+ Amiga-R   Dateiliste neu laden
+ Amiga-S   Datei speichern
+ Amiga-W   Datei schließen
+ Amiga-L   Build-Log leeren
+ Amiga-E   Einstellungen
+ Amiga-K   Skills
+ Amiga-H   Anleitung
+ Amiga-D   Änderungen anzeigen (Diff)
+ Amiga-Z   Letzte Änderung zurücknehmen (Undo)
+ Amiga-J   Sitzungen
+ Amiga-.   Stop
+ Amiga-?   Über AmiCodeIDE
+ Amiga-Q   Beenden
+ HELP      Anleitung zum aktuellen Fenster
+ Return    Auftrag senden / Befehl übernehmen
+ Cursor hoch/runter  in der Befehlszeile: frühere Befehle
+@{body}
+
+@endnode
+
+@node TROUBLE "Tipps und Fehlerbehebung"
+@{b}Tipps und Fehlerbehebung@{ub}
+
+@{b}"TLS: Zertifikat abgelehnt"@{ub} - meist stimmt die Systemuhr nicht. Uhr stellen (am besten per NTP, zum Beispiel mit AmiTimeKeeper) und neu versuchen.
+
+@{b}"Kein API-Key" / "HTTP 401"@{ub} - Key im @{"Einstellungsfenster" link PREFS} prüfen.
+
+@{b}Ollama antwortet nicht@{ub} - läuft der Ollama-Server und ist er im Netz erreichbar (OLLAMA_HOST=0.0.0.0)? Die Basis-URL endet auf :11434/v1 und beginnt mit http:// (nicht https).
+
+@{b}Lokales Modell vergisst den Anfang oder dreht sich im Kreis@{ub} - der Kontext ist zu klein für die Aufgabe. Im @{"Einstellungsfenster" link PREFS} unter Ollama einen größeren Wert bei @{i}Kontext (Tokens)@{ui} eintragen (32768 ist ein guter Wert, falls die Grafikkarte genug Speicher hat). AmiCodeIDE fasst die Sitzung ab 70 Prozent automatisch zusammen; zwischendurch hilft auch /compact.
+
+@{b}Ollama meldet "out of memory" oder wird sehr langsam@{ub} - der Kontext ist zu groß für die Grafikkarte. Kleineren Wert bei @{i}Kontext (Tokens)@{ui} eintragen, zum Beispiel 16384.
+
+@{b}Der Agent dreht sich im Kreis@{ub} - Stop drücken, die Aufgabe genauer beschreiben oder in Teile zerlegen, ein stärkeres Modell wählen.
+
+@{b}Build findet Header nicht@{ub} - das build-Skript setzt die Assigns; prüfen, ob der Compiler noch am gefundenen Ort liegt (/toolchains scan).
+
+@{b}Die Oberfläche öffnet nicht@{ub} - fehlt eine MUI-Klasse? Siehe @{"Voraussetzungen" link REQUIRE}.
+
+@{b}Kosten im Blick@{ub} - bei jedem Schritt geht die ganze Unterhaltung erneut an das Modell; lange Sitzungen werden deshalb teuer. Bei OpenRouter zeigt die Statuszeile die Kosten in Dollar, die Zeile nach jedem Auftrag die Kosten des Auftrags; das @{"Kostenlimit" link PREFS} hält einen Auftrag an, bevor er zu teuer wird. Am meisten spart ein klarer Auftrag und ein AMICODE.md mit dem Build-Rezept: ein Agent, der erst Header durchsuchen muss, verbraucht ein Vielfaches. /tokens zeigt den Verbrauch, /compact fasst lange Sitzungen zusammen, /reset beginnt neu. Für Claude und Gemini über OpenRouter nutzt AmiCodeIDE Prompt-Caching: der gleichbleibende Anfang wird dann nur zu etwa einem Zehntel berechnet (die Zeile nach jedem Auftrag zeigt "davon ... aus dem Cache"). Bei Claude Haiku greift der Cache erst bei längeren Anfragen. OpenAI cacht automatisch.
+
+@endnode
+
+@node LIMITS "Grenzen"
+@{b}Grenzen@{ub}
+
+- Der Agent sieht keine Fenster: bei GUI-Programmen weiß er nicht, wie das Ergebnis aussieht. Beschreibe ihm, was du siehst.
+- Es gibt keinen Debugger; bei einem Absturz hilft die Guru-Nummer, die du dem Agenten nennst.
+- Ein fehlerhaftes Testprogramm kann den Amiga anhalten (kein Speicherschutz).
+- Webseiten, die nur mit JavaScript funktionieren, kann der Agent nicht lesen.
+- AMOS Pro wird nicht unterstützt.
+
+@endnode
+
+@node INDEX "Index"
+@{b}Index@{ub}
+
+   @{" Abstürze             " link SAFETY}
+   @{" AMICODE.md           " link PROJECTFILES}
+   @{" amicode (Shell)      " link CLI}
+   @{" AmiBlitz3            " link TOOLCHAINS}
+   @{" API-Key              " link PREFS}
+   @{" Befehle              " link COMMANDS}
+   @{" Build-Log            " link MAINWINDOW}
+   @{" Darstellung          " link APPEARANCE}
+   @{" Deutsch              " link LANGUAGE}
+   @{" Dunkel-Modus         " link APPEARANCE}
+   @{" Diff und Undo        " link SAFETY}
+   @{" Einstellungen        " link PREFS}
+   @{" Farben und Schriften " link APPEARANCE}
+   @{" Internet             " link WEB}
+   @{" Kataloge             " link LANGUAGE}
+   @{" Konfiguration        " link CONFIG}
+   @{" Modell wählen        " link PREFS}
+   @{" Modi                 " link SAFETY}
+   @{" Neues Projekt        " link NEWPROJECT}
+   @{" Ollama               " link PREFS}
+   @{" OpenRouter           " link PREFS}
+   @{" Shell-Befehle        " link MAINWINDOW}
+   @{" Sitzungen            " link SESSIONS}
+   @{" Skills               " link SKILLS}
+   @{" Sprachen             " link TOOLCHAINS}
+   @{" Tastenkürzel         " link KEYS}
+   @{" Tokens und Kosten    " link TROUBLE}
+   @{" Werkzeugleiste       " link MAINWINDOW}
+
+@endnode

@@ -44,15 +44,23 @@
 #include "gui_sessions.h"
 #include "gui_skills.h"
 #include "provider.h"
+#include "amiloc.h"
+#include "theme.h"
 
-#define VERSION_STRING  "0.28"
+/* Text mit Theme-Schriftfarbe; ohne eigene Klasse ein normales Text-Objekt */
+#define TTEXT(area, ...)    (theme_text(area, __VA_ARGS__) ?: MUI_NewObject(MUIC_Text, __VA_ARGS__))
+/* wie Label(), aber mit Theme-Schriftfarbe */
+#define TLABEL(str)         TTEXT(TA_WINDOW, MUIA_Text_PreParse, (ULONG)"\33r", MUIA_Text_Contents, (ULONG)(str), \
+                                  MUIA_Weight, 0, MUIA_InnerLeft, 0, MUIA_InnerRight, 0, TAG_DONE)
+
+#define VERSION_STRING  "0.30"
 #define NARROW_WIDTH    800     /* darunter Register statt drei Spalten */
 #define MAX_EDIT_FILE   (512 * 1024)
 #define MAX_TREE_DEPTH  6
 #define MAX_TREE_NODES  2000
 #define MAX_LOG_LINES   2000
 
-static const char vers[] = "$VER: AmiCodeIDE " VERSION_STRING " (23.09.2026)";
+static const char vers[] = "$VER: AmiCodeIDE " VERSION_STRING " (24.09.2026)";
 
 unsigned long __stack = 65536;
 
@@ -62,7 +70,8 @@ enum {
     ID_SEND = 1, ID_STOP, ID_OPEN_FILE, ID_SAVE_FILE, ID_PROJECT, ID_ABOUT, ID_QUIT,
     ID_RESET, ID_RESUME, ID_MODE, ID_RELOAD, ID_LOG_JUMP, ID_RUN_CMD, ID_CLEAR_LOG,
     ID_UNDO, ID_DIFF, ID_BUILD, ID_RUN, ID_TAB_SELECT, ID_CLOSE_FILE, ID_EDIT_CHANGED,
-    ID_INPUT_CHANGED, ID_SLASH_PICK, ID_PREFS, ID_NEWPROJ, ID_GUIDE, ID_SESSIONS, ID_SKILLS
+    ID_INPUT_CHANGED, ID_SLASH_PICK, ID_PREFS, ID_NEWPROJ, ID_GUIDE, ID_SESSIONS, ID_SKILLS,
+    ID_THEME
 };
 
 #define GUIDE_FILE  "PROGDIR:AmiCodeIDE.guide"
@@ -71,77 +80,97 @@ enum {
    arg: Befehl erwartet ein Argument, Return fuegt ihn nur ein. */
 static const struct {
     const char *cmd;
-    const char *desc;
+    long desc;          /* MSG_-Nummer */
     int arg;
 } slash_cmds[] = {
-    { "/help",    "alle Befehle", 0 },
-    { "/status",  "Version, Modell, Projekt", 0 },
-    { "/context", "Groesse der Unterhaltung", 0 },
-    { "/tokens",  "verbrauchte Tokens", 0 },
-    { "/model",   "Modell waehlen (Liste)", 1 },
-    { "/compact", "Sitzung zusammenfassen", 1 },
-    { "/prune",   "alte Tool-Ausgaben entfernen", 0 },
-    { "/diff",    "Aenderungen anzeigen", 0 },
-    { "/undo",    "letzte Aenderung zuruecknehmen", 0 },
-    { "/reset",   "neue Sitzung", 0 },
-    { "/sessions", "fruehere Sitzungen", 0 },
-    { "/resume",  "Sitzung fortsetzen [nr]", 1 },
-    { "/skills",  "Amiga-Wissen (Skills)", 0 },
-    { "/new",     "neues Projekt (Assistent)", 0 },
-    { "/toolchains", "installierte Compiler zeigen", 0 },
-    { NULL, NULL, 0 }
+    { "/help", MSG_SL_HELP, 0 },
+    { "/status", MSG_SL_STATUS, 0 },
+    { "/context", MSG_SL_CONTEXT, 0 },
+    { "/tokens", MSG_SL_TOKENS, 0 },
+    { "/model", MSG_SL_MODEL, 1 },
+    { "/compact", MSG_SL_COMPACT, 1 },
+    { "/prune", MSG_SL_PRUNE, 0 },
+    { "/diff", MSG_SL_DIFF, 0 },
+    { "/undo", MSG_SL_UNDO, 0 },
+    { "/reset", MSG_SL_RESET, 0 },
+    { "/sessions", MSG_SL_SESSIONS, 0 },
+    { "/resume", MSG_SL_RESUME, 1 },
+    { "/skills", MSG_SL_SKILLS, 0 },
+    { "/new", MSG_SL_NEW, 0 },
+    { "/toolchains", MSG_SL_TOOLCHAINS, 0 },
+    { NULL, 0, 0 }
 };
 
 /* Werkzeugleiste (TheBar.mcc im Textmodus; ohne TheBar normale Knoepfe) */
+/* Texte: tb_texts, eingesetzt von localize_tables() */
 static struct MUIS_TheBar_Button tb_buttons[] = {
-    { 0, ID_NEWPROJ,   "Ne_u",          "Neues Projekt anlegen (Assistent)", 0, 0, NULL, NULL },
-    { 0, ID_PROJECT,   "Oe_ffnen",      "Anderes Projekt oeffnen", 0, 0, NULL, NULL },
+    { 0, ID_NEWPROJ, NULL, NULL, 0, 0, NULL, NULL },
+    { 0, ID_PROJECT, NULL, NULL, 0, 0, NULL, NULL },
     { MUIV_TheBar_BarSpacer, 0, NULL, NULL, 0, 0, NULL, NULL },
-    { 0, ID_BUILD,     "_Bauen",        "Projekt bauen (Execute build, make oder [ui] build=)", 0, 0, NULL, NULL },
-    { 0, ID_RUN,       "Sta_rten",      "Programm starten ([ui] run=)", 0, 0, NULL, NULL },
+    { 0, ID_BUILD, NULL, NULL, 0, 0, NULL, NULL },
+    { 0, ID_RUN, NULL, NULL, 0, 0, NULL, NULL },
     { MUIV_TheBar_BarSpacer, 0, NULL, NULL, 0, 0, NULL, NULL },
-    { 0, ID_SAVE_FILE, "Spei_chern",    "Datei im Editor speichern", 0, 0, NULL, NULL },
-    { 0, ID_DIFF,      "_Diff",         "Aenderungen des Agenten in dieser Sitzung", 0, 0, NULL, NULL },
-    { 0, ID_UNDO,      "_Undo",         "Zuletzt vom Agenten geaenderte Datei zuruecksetzen", 0, 0, NULL, NULL },
+    { 0, ID_SAVE_FILE, NULL, NULL, 0, 0, NULL, NULL },
+    { 0, ID_DIFF, NULL, NULL, 0, 0, NULL, NULL },
+    { 0, ID_UNDO, NULL, NULL, 0, 0, NULL, NULL },
     { MUIV_TheBar_BarSpacer, 0, NULL, NULL, 0, 0, NULL, NULL },
-    { 0, ID_STOP,      "St_op",         "Laufenden Auftrag oder Befehl abbrechen", 0, 0, NULL, NULL },
-    { 0, ID_RESET,     "_Neue Sitzung", "Verlauf verwerfen und neu beginnen", 0, 0, NULL, NULL },
+    { 0, ID_STOP, NULL, NULL, 0, 0, NULL, NULL },
+    { 0, ID_RESET, NULL, NULL, 0, 0, NULL, NULL },
     { MUIV_TheBar_End, 0, NULL, NULL, 0, 0, NULL, NULL }
 };
 
+static const struct { ULONG id; long text, help; } tb_texts[] = {
+    { ID_NEWPROJ, MSG_TB_NEW, MSG_TB_NEW_HELP },
+    { ID_PROJECT, MSG_TB_OPEN, MSG_TB_OPEN_HELP },
+    { ID_BUILD, MSG_TB_BUILD, MSG_TB_BUILD_HELP },
+    { ID_RUN, MSG_TB_RUN, MSG_TB_RUN_HELP },
+    { ID_SAVE_FILE, MSG_TB_SAVE, MSG_TB_SAVE_HELP },
+    { ID_DIFF, MSG_TB_DIFF, MSG_TB_DIFF_HELP },
+    { ID_UNDO, MSG_TB_UNDO, MSG_TB_UNDO_HELP },
+    { ID_STOP, MSG_TB_STOP, MSG_TB_STOP_HELP },
+    { ID_RESET, MSG_TB_RESET, MSG_TB_RESET_HELP },
+};
+
 static struct NewMenu menu[] = {
-    { NM_TITLE, "Projekt",                 NULL, 0, 0, NULL },
-    { NM_ITEM,  "Neues Projekt...",        "N",  0, 0, (APTR)ID_NEWPROJ },
-    { NM_ITEM,  "Projekt oeffnen...",      "O",  0, 0, (APTR)ID_PROJECT },
-    { NM_ITEM,  "Dateiliste neu laden",    "R",  0, 0, (APTR)ID_RELOAD },
-    { NM_ITEM,  "Datei speichern",         "S",  0, 0, (APTR)ID_SAVE_FILE },
-    { NM_ITEM,  "Datei schliessen",        "W",  0, 0, (APTR)ID_CLOSE_FILE },
-    { NM_ITEM,  "Build-Log leeren",        "L",  0, 0, (APTR)ID_CLEAR_LOG },
-    { NM_ITEM,  NM_BARLABEL,               NULL, 0, 0, NULL },
-    { NM_ITEM,  "Einstellungen...",        "E",  0, 0, (APTR)ID_PREFS },
-    { NM_ITEM,  "Skills...",               "K",  0, 0, (APTR)ID_SKILLS },
-    { NM_ITEM,  NM_BARLABEL,               NULL, 0, 0, NULL },
-    { NM_ITEM,  "Anleitung...",            "H",  0, 0, (APTR)ID_GUIDE },
-    { NM_ITEM,  "Ueber AmiCodeIDE...",        "?",  0, 0, (APTR)ID_ABOUT },
-    { NM_ITEM,  NM_BARLABEL,               NULL, 0, 0, NULL },
-    { NM_ITEM,  "Beenden",                 "Q",  0, 0, (APTR)ID_QUIT },
-    { NM_TITLE, "Agent",                   NULL, 0, 0, NULL },
-    { NM_ITEM,  "Auftrag senden",          NULL, 0, 0, (APTR)ID_SEND },
-    { NM_ITEM,  "Stop",                    ".",  0, 0, (APTR)ID_STOP },
-    { NM_ITEM,  NM_BARLABEL,               NULL, 0, 0, NULL },
-    { NM_ITEM,  "Aenderungen anzeigen",    "D",  0, 0, (APTR)ID_DIFF },
-    { NM_ITEM,  "Letzte Aenderung zuruecknehmen", "Z", 0, 0, (APTR)ID_UNDO },
-    { NM_ITEM,  NM_BARLABEL,               NULL, 0, 0, NULL },
-    { NM_ITEM,  "Neue Sitzung",            NULL, 0, 0, (APTR)ID_RESET },
-    { NM_ITEM,  "Letzte Sitzung fortsetzen", NULL, 0, 0, (APTR)ID_RESUME },
-    { NM_ITEM,  "Sitzungen...",            "J",  0, 0, (APTR)ID_SESSIONS },
+    { NM_TITLE, NULL,        NULL, 0, 0, NULL },
+    { NM_ITEM,  NULL,        "N",  0, 0, (APTR)ID_NEWPROJ },
+    { NM_ITEM,  NULL,        "O",  0, 0, (APTR)ID_PROJECT },
+    { NM_ITEM,  NULL,        "R",  0, 0, (APTR)ID_RELOAD },
+    { NM_ITEM,  NULL,        "S",  0, 0, (APTR)ID_SAVE_FILE },
+    { NM_ITEM,  NULL,        "W",  0, 0, (APTR)ID_CLOSE_FILE },
+    { NM_ITEM,  NULL,        "L",  0, 0, (APTR)ID_CLEAR_LOG },
+    { NM_ITEM,  NM_BARLABEL, NULL, 0, 0, NULL },
+    { NM_ITEM,  NULL,        "E",  0, 0, (APTR)ID_PREFS },
+    { NM_ITEM,  NULL,        "K",  0, 0, (APTR)ID_SKILLS },
+    { NM_ITEM,  NM_BARLABEL, NULL, 0, 0, NULL },
+    { NM_ITEM,  NULL,        "H",  0, 0, (APTR)ID_GUIDE },
+    { NM_ITEM,  NULL,        "?",  0, 0, (APTR)ID_ABOUT },
+    { NM_ITEM,  NM_BARLABEL, NULL, 0, 0, NULL },
+    { NM_ITEM,  NULL,        "Q",  0, 0, (APTR)ID_QUIT },
+    { NM_TITLE, NULL,        NULL, 0, 0, NULL },
+    { NM_ITEM,  NULL,        NULL, 0, 0, (APTR)ID_SEND },
+    { NM_ITEM,  NULL,        ".",  0, 0, (APTR)ID_STOP },
+    { NM_ITEM,  NM_BARLABEL, NULL, 0, 0, NULL },
+    { NM_ITEM,  NULL,        "D",  0, 0, (APTR)ID_DIFF },
+    { NM_ITEM,  NULL,        "Z",  0, 0, (APTR)ID_UNDO },
+    { NM_ITEM,  NM_BARLABEL, NULL, 0, 0, NULL },
+    { NM_ITEM,  NULL,        NULL, 0, 0, (APTR)ID_RESET },
+    { NM_ITEM,  NULL,        NULL, 0, 0, (APTR)ID_RESUME },
+    { NM_ITEM,  NULL,        "J",  0, 0, (APTR)ID_SESSIONS },
     { NM_END,   NULL,                      NULL, 0, 0, NULL }
+};
+
+/* Menuetexte in derselben Reihenfolge wie menu[]; 0 = Trennstrich/Ende */
+static const long menu_texts[] = {
+    MSG_MENU_PROJECT, MSG_MENU_NEWPROJ, MSG_MENU_OPENPROJ, MSG_MENU_RELOAD, MSG_MENU_SAVE, MSG_MENU_CLOSE, MSG_MENU_CLEARLOG, 0, MSG_MENU_PREFS, MSG_MENU_SKILLS, 0, MSG_MENU_GUIDE, MSG_MENU_ABOUT, 0, MSG_MENU_QUIT, MSG_MENU_AGENT, MSG_MENU_SEND, MSG_MENU_STOP, 0, MSG_MENU_DIFF, MSG_MENU_UNDO, 0, MSG_MENU_RESET, MSG_MENU_RESUME, MSG_MENU_SESSIONS, 0
 };
 
 static const char *mode_labels[] = { "Safe", "Project", "Full", NULL };
 
 static Object *app, *win, *files, *editor, *output, *input, *busy, *status, *tokentext;
 static Object *projtext, *modecycle, *bt_send, *bt_stop, *modeltext, *prefswin;
+static Object *rootgrp, *themecycle, *lbl_project, *lbl_model, *lbl_mode, *lbl_openfiles;
+static const char *theme_labels[3];
 static char *model_list;            /* zuletzt geholte Modelle (AllocVec), fuer /model */
 static int slash_models;            /* Auswahlliste zeigt gerade Modelle */
 static Object *buildlog, *cmdinput, *cmdlabel, *bt_run, *pages, *toolbar;
@@ -207,7 +236,7 @@ static void set_busy(int on)
     if (busy_is_mcc)
         set(busy, MUIA_Busy_Speed, on ? MUIV_Busy_Speed_User : MUIV_Busy_Speed_Off);
     else
-        set(busy, MUIA_Text_Contents, on ? "\33c\33bdenke nach ..." : "");
+        set(busy, MUIA_Text_Contents, on ? GetStr(MSG_BUSY_THINKING) : "");
 }
 
 /* Text unten an die Agent-Ausgabe haengen und hinscrollen */
@@ -278,14 +307,14 @@ static void show_tokens(const char *text)
     fmt_tokens(cache, sizeof(cache), v[4]);
     if (v[1] > 0) {
         long pct = v[0] * 100 / v[1];
-        snprintf(line, sizeof(line), "%sKontext %s/%s (%ld%%)%s | %s ein / %s aus",
+        snprintf(line, sizeof(line), GetStr(MSG_TOK_LINE_LIMIT),
                  pct >= 70 ? "\33b" : "", ctx, lim, pct, pct >= 70 ? "\33n" : "", in, out);
     } else {
-        snprintf(line, sizeof(line), "Kontext %s | %s ein / %s aus", ctx, in, out);
+        snprintf(line, sizeof(line), GetStr(MSG_TOK_LINE), ctx, in, out);
     }
     if (v[4] > 0) {
         size_t l = strlen(line);
-        snprintf(line + l, sizeof(line) - l, " (%s Cache)", cache);
+        snprintf(line + l, sizeof(line) - l, GetStr(MSG_TOK_CACHE), cache);
     }
     if (v[5] >= 0) {
         /* Kosten nach vorn: lange Zeilen schneidet MUI rechts ab */
@@ -407,6 +436,13 @@ static int is_keyword(const char *s, int len)
 
 #define EMIT(str)   do { const char *e_ = (str); while (*e_) *o++ = *e_++; } while (0)
 
+/* Farben der Hervorhebung: Eintraege der ColorMap des Editors (theme.c) */
+#define HL_KEYWORD  "\33b\33p[1]"
+#define HL_COMMENT  "\33i\33p[2]"
+#define HL_STRING   "\33p[3]"
+#define HL_PREPROC  "\33b\33p[4]"
+#define HL_END      "\33p[0]\33n"
+
 /* Liefert AllocVec-Puffer mit Stil-Codes oder NULL (dann ungefaerbt laden) */
 static char *highlight(const char *src, int lang)
 {
@@ -417,8 +453,8 @@ static char *highlight(const char *src, int lang)
 
     if (lang == LANG_NONE || strchr(src, '\33'))
         return NULL;
-    /* schlimmster Fall: leere Zeilen in Blockkommentaren */
-    if (!(out = AllocVec(n * 5 + 64, MEMF_ANY)))
+    /* schlimmster Fall: "" oder einzeilige Kommentare - 12 Zeichen Codes je 2 Zeichen */
+    if (!(out = AllocVec(n * 8 + 64, MEMF_ANY)))
         return NULL;
     o = out;
 
@@ -427,7 +463,7 @@ static char *highlight(const char *src, int lang)
         const char *end = eol ? eol : p + strlen(p);
 
         if (in_block && p < end)
-            EMIT("\33i");
+            EMIT(HL_COMMENT);
         if (lang == LANG_ASM) {
             const char *c = p;
             while (c < end && *c != ';' && !(c == p && *c == '*'))
@@ -435,10 +471,10 @@ static char *highlight(const char *src, int lang)
             memcpy(o, p, c - p);
             o += c - p;
             if (c < end) {
-                EMIT("\33i");
+                EMIT(HL_COMMENT);
                 memcpy(o, c, end - c);
                 o += end - c;
-                EMIT("\33n");
+                EMIT(HL_END);
             }
             p = end;
         } else {
@@ -454,33 +490,34 @@ static char *highlight(const char *src, int lang)
                     w++;
                 memcpy(o, p, s - p);
                 o += s - p;
-                EMIT("\33b");
+                EMIT(HL_PREPROC);
                 memcpy(o, s, w - s);
                 o += w - s;
-                EMIT("\33n");
+                EMIT(HL_END);
                 p = w;
             }
             while (p < end) {
                 if (in_block) {
                     if (p[0] == '*' && p + 1 < end && p[1] == '/') {
-                        EMIT("*/\33n");
+                        EMIT("*/" HL_END);
                         p += 2;
                         in_block = 0;
                     } else {
                         *o++ = *p++;
                     }
                 } else if (p[0] == '/' && p + 1 < end && p[1] == '*') {
-                    EMIT("\33i/*");
+                    EMIT(HL_COMMENT "/*");
                     p += 2;
                     in_block = 1;
                 } else if (p[0] == '/' && p + 1 < end && p[1] == '/') {
-                    EMIT("\33i");
+                    EMIT(HL_COMMENT);
                     memcpy(o, p, end - p);
                     o += end - p;
-                    EMIT("\33n");
+                    EMIT(HL_END);
                     p = end;
                 } else if (*p == '"' || *p == '\'') {
                     char q = *p;
+                    EMIT(HL_STRING);
                     *o++ = *p++;
                     while (p < end && *p != q) {
                         if (*p == '\\' && p + 1 < end)
@@ -489,15 +526,16 @@ static char *highlight(const char *src, int lang)
                     }
                     if (p < end)
                         *o++ = *p++;
+                    EMIT(HL_END);
                 } else if (is_ident(*p, 1)) {
                     const char *w = p;
                     while (w < end && is_ident(*w, 0))
                         w++;
                     if (is_keyword(p, w - p)) {
-                        EMIT("\33b");
+                        EMIT(HL_KEYWORD);
                         memcpy(o, p, w - p);
                         o += w - p;
-                        EMIT("\33n");
+                        EMIT(HL_END);
                     } else {
                         memcpy(o, p, w - p);
                         o += w - p;
@@ -508,7 +546,7 @@ static char *highlight(const char *src, int lang)
                 }
             }
             if (in_block && end > s)
-                EMIT("\33n");      /* Stil gilt nur bis Zeilenende; naechste Zeile setzt neu */
+                EMIT(HL_END);      /* Stil gilt nur bis Zeilenende; naechste Zeile setzt neu */
         }
         if (eol) {
             *o++ = '\n';
@@ -532,7 +570,7 @@ static int load_into_editor(const char *name)
     BPTR lock;
 
     if (!(lock = Lock(name, SHARED_LOCK))) {
-        set_status("Kann '%s' nicht oeffnen", name);
+        set_status(GetStr(MSG_ST_CANT_OPEN), name);
         return 0;
     }
     size = -1;
@@ -543,7 +581,7 @@ static int load_into_editor(const char *name)
     }
     UnLock(lock);
     if (size < 0 || size > MAX_EDIT_FILE) {
-        set_status("'%s' ist kein Textfile oder zu gross", name);
+        set_status(GetStr(MSG_ST_NOT_TEXT), name);
         return 0;
     }
     if (!(buf = AllocVec(size + 1, MEMF_ANY)))
@@ -553,14 +591,14 @@ static int load_into_editor(const char *name)
         Close(fh);
         buf[n > 0 ? n : 0] = 0;
         if (memchr(buf, 0, n > 0 ? n : 0)) {
-            set_status("'%s' ist eine Binaerdatei", name);
+            set_status(GetStr(MSG_ST_BINARY), name);
         } else {
             char *hl = highlight(buf, lang_of(name));
             set(editor, MUIA_TextEditor_Contents, hl ? hl : buf);
             if (hl)
                 FreeVec(hl);
             set(editor, MUIA_TextEditor_HasChanged, FALSE);
-            set_status("%s (%ld Bytes)", name, (long)n);
+            set_status(GetStr(MSG_ST_BYTES), name, (long)n);
             ok = 1;
         }
     }
@@ -632,7 +670,7 @@ static void tab_show(int i)
         set(editor, MUIA_TextEditor_HasChanged, TRUE);
         FreeVec(t->text);
         t->text = NULL;
-        set_status("%s (ungespeichert)", t->path);
+        set_status(GetStr(MSG_ST_UNSAVED), t->path);
     } else {
         load_into_editor(t->path);
     }
@@ -656,7 +694,7 @@ static void open_file(const char *name)
         return;
     }
     if (ntabs == MAX_TABS) {
-        set_status("Zu viele offene Dateien - erst eine schliessen (Amiga-W)");
+        set_status(GetStr(MSG_ST_TOO_MANY));
         return;
     }
     tab_store();
@@ -704,8 +742,8 @@ static int confirm_discard(const char *what)
 
     if (!n)
         return 1;
-    return MUI_Request(app, win, 0, "AmiCodeIDE", "_Verwerfen|_Abbrechen",
-                       "\33c%ld Datei(en) mit ungespeicherten Aenderungen.\n%s",
+    return MUI_Request(app, win, 0, "AmiCodeIDE", (char *)GetStr(MSG_REQ_DISCARD_CANCEL),
+                       (char *)GetStr(MSG_REQ_UNSAVED_N),
                        (ULONG)n, (ULONG)what) == 1;
 }
 
@@ -716,8 +754,8 @@ static void close_tab(void)
     if (cur_tab < 0)
         return;
     if (tab_is_changed(cur_tab) &&
-        MUI_Request(app, win, 0, "AmiCodeIDE", "_Verwerfen|_Abbrechen",
-                    "\33c%s hat ungespeicherte Aenderungen.\nTrotzdem schliessen?",
+        MUI_Request(app, win, 0, "AmiCodeIDE", (char *)GetStr(MSG_REQ_DISCARD_CANCEL),
+                    (char *)GetStr(MSG_REQ_UNSAVED_CLOSE),
                     (ULONG)tabs[cur_tab].path) != 1)
         return;
     if (tabs[cur_tab].text)
@@ -755,7 +793,7 @@ static void save_file(void)
     BPTR fh;
 
     if (!current_file[0]) {
-        set_status("Keine Datei geoeffnet");
+        set_status(GetStr(MSG_ST_NO_FILE));
         return;
     }
     if (!(text = (char *)DoMethod(editor, MUIM_TextEditor_ExportText)))
@@ -774,9 +812,9 @@ static void save_file(void)
         if (cur_tab >= 0)
             tabs[cur_tab].changed = 0;
         tabs_refresh_list();
-        set_status("%s gespeichert", current_file);
+        set_status(GetStr(MSG_ST_SAVED), current_file);
     } else {
-        set_status("Kann %s nicht schreiben", current_file);
+        set_status(GetStr(MSG_ST_CANT_WRITE), current_file);
     }
     FreeVec(text);
 }
@@ -940,7 +978,7 @@ static void log_jump(void)
         entry += 2;
     if (!parse_location(entry, file, sizeof(file), &line) &&
         !parse_line_only(entry, active, file, sizeof(file), &line)) {
-        set_status("Keine Datei/Zeile in dieser Meldung erkannt");
+        set_status(GetStr(MSG_ST_NO_LOCATION));
         return;
     }
     open_file(file);
@@ -949,7 +987,7 @@ static void log_jump(void)
         set(win, MUIA_Window_ActiveObject, editor);
         if (pages)
             set(pages, MUIA_Group_ActivePage, 1);
-        set_status("%s, Zeile %ld", file, (long)line);
+        set_status(GetStr(MSG_ST_FILE_LINE), file, (long)line);
     }
 }
 
@@ -1073,7 +1111,7 @@ static void run_manual_command(void)
     if (!cmd || !*cmd)
         return;
     if (agent_busy) {
-        set_status("Der Agent arbeitet noch - Stop oder warten");
+        set_status(GetStr(MSG_AGENT_BUSY));
         return;
     }
     hist_add(cmd);
@@ -1081,7 +1119,7 @@ static void run_manual_command(void)
     set(cmdinput, MUIA_String_Contents, "");
     set(win, MUIA_Window_ActiveObject, cmdinput);   /* Return deaktiviert die Zeile */
     set_busy(1);
-    set_status("Befehl laeuft ...");
+    set_status(GetStr(MSG_ST_CMD_RUNNING));
 }
 
 /* ---------- Agent ---------- */
@@ -1148,7 +1186,7 @@ static void slash_update(void)
     for (i = 0; slash_cmds[i].cmd; i++) {
         if (strnicmp(slash_cmds[i].cmd, text, len) != 0)
             continue;
-        snprintf(line, sizeof(line), "\33b%-9s\33n %s", slash_cmds[i].cmd, slash_cmds[i].desc);
+        snprintf(line, sizeof(line), "\33b%-9s\33n %s", slash_cmds[i].cmd, GetStr(slash_cmds[i].desc));
         DoMethod(slashlist, MUIM_NList_InsertSingle, (ULONG)line, MUIV_NList_Insert_Bottom);
         slash_map[slash_count++] = i;
     }
@@ -1190,7 +1228,7 @@ static int slash_pick(void)
         /* verfuegbare Modelle holen; die Liste erscheint, sobald sie da ist */
         gui_agent_prompt("/model");
         set_busy(1);
-        set_status("Hole Modellliste ...");
+        set_status(GetStr(MSG_ST_FETCH_MODELS));
     }
     if (slash_cmds[c].arg) {
         snprintf(buf, sizeof(buf), "%s ", slash_cmds[c].cmd);
@@ -1212,7 +1250,7 @@ static void send_prompt(void)
     if (!text || !*text)
         return;
     if (agent_busy) {
-        set_status("Der Agent arbeitet noch - Stop oder warten");
+        set_status(GetStr(MSG_AGENT_BUSY));
         return;
     }
     slash_hide();
@@ -1226,7 +1264,7 @@ static void send_prompt(void)
     gui_agent_prompt(text);
     set(input, MUIA_String_Contents, "");
     set_busy(1);
-    set_status("Agent arbeitet ...");
+    set_status(GetStr(MSG_ST_AGENT_WORKING));
 }
 
 static int switch_pending;
@@ -1239,12 +1277,12 @@ static void session_action(int what)
     const char *name = sessions_selected();
 
     if (agent_busy) {
-        set_status("Erst den laufenden Auftrag beenden");
+        set_status(GetStr(MSG_FINISH_TASK_FIRST));
         return;
     }
     if (what == SS_DELETE) {
-        if (!MUI_Request(app, sessionswin, 0, "AmiCodeIDE - Sitzung loeschen", "_Loeschen|_Abbrechen",
-                         "Sitzung %s endgueltig loeschen?", (ULONG)name))
+        if (!MUI_Request(app, sessionswin, 0, (char *)GetStr(MSG_REQ_DELSESS_TITLE), (char *)GetStr(MSG_REQ_DELSESS_GADS),
+                         (char *)GetStr(MSG_REQ_DELSESS), (ULONG)name))
             return;
         gui_agent_sessions(name);
     } else {
@@ -1262,8 +1300,8 @@ static void handle_events(struct MsgPort *port)
     while ((ev = (GuiEvent *)GetMsg(port))) {
         if (ev->kind == EV_ASK) {
             /* Ablehnen steht rechts: Esc und Schliessen ergeben 0 = ablehnen */
-            LONG r = MUI_Request(app, win, 0, "AmiCodeIDE - Freigabe",
-                                 "_Erlauben|_Immer|Auftrag _stoppen|_Ablehnen", "\33l%s", (ULONG)ev->text);
+            LONG r = MUI_Request(app, win, 0, (char *)GetStr(MSG_REQ_ASK_TITLE),
+                                 (char *)GetStr(MSG_REQ_ASK_GADS), "\33l%s", (ULONG)ev->text);
             ev->answer = r == 1 ? ASK_YES : r == 2 ? ASK_ALWAYS : r == 3 ? ASK_ABORT : ASK_NO;
             ReplyMsg(&ev->msg);
             continue;
@@ -1271,7 +1309,7 @@ static void handle_events(struct MsgPort *port)
         switch (ev->kind) {
         case EV_IDLE:
             set_busy(0);
-            set_status("Bereit");
+            set_status(GetStr(MSG_ST_READY));
             if (pending_project[0])
                 switch_pending = 1;     /* erst nach der Schleife: der Agent-Prozess wird neu gestartet */
             else
@@ -1354,7 +1392,7 @@ static int start_agent(struct MsgPort *events)
 
     get(modecycle, MUIA_Cycle_Active, &m);
     if (!gui_agent_start(&cfg, project_lock, (int)m, events)) {
-        out_append("\33b! Agent-Prozess konnte nicht gestartet werden\33n\n");
+        out_append(GetStr(MSG_AGENT_START_FAIL));
         return 0;
     }
     set(tokentext, MUIA_Text_Contents, "Tokens: -");    /* neuer Agent zaehlt von vorn */
@@ -1428,20 +1466,20 @@ static void switch_to_project(const char *newdir, struct MsgPort *events)
     static char dir[600];
 
     if (agent_busy) {
-        set_status("Erst den laufenden Auftrag beenden");
+        set_status(GetStr(MSG_FINISH_TASK_FIRST));
         return;
     }
-    if (!confirm_discard("Beim Projektwechsel gehen sie verloren."))
+    if (!confirm_discard(GetStr(MSG_LOST_SWITCH)))
         return;
     strncpy(dir, newdir, sizeof(dir) - 1);
     dir[sizeof(dir) - 1] = 0;
     gui_agent_stop();
     if (set_project(dir)) {
-        out_append("\n\33bProjekt:\33n ");
+        out_append(GetStr(MSG_OUT_PROJECT));
         out_append(project);
         out_append("\n");
     } else {
-        set_status("Projekt %s nicht gefunden", dir);
+        set_status(GetStr(MSG_ST_PROJECT_MISSING), dir);
     }
     start_agent(events);
 }
@@ -1452,7 +1490,7 @@ static void choose_project(struct MsgPort *events)
     struct FileRequester *req;
 
     req = MUI_AllocAslRequestTags(ASL_FileRequest,
-                                  ASLFR_TitleText, (ULONG)"Schublade als Projekt oeffnen",
+                                  ASLFR_TitleText, (ULONG)GetStr(MSG_ASL_PROJECT),
                                   ASLFR_DrawersOnly, TRUE,
                                   ASLFR_InitialDrawer, (ULONG)project,
                                   TAG_DONE);
@@ -1494,12 +1532,11 @@ static void run_tool_command(int id)
     const char *cmd = id == ID_BUILD ? build_command() : ui_setting("ui.run");
 
     if (agent_busy) {
-        set_status("Der Agent arbeitet noch - Stop oder warten");
+        set_status(GetStr(MSG_AGENT_BUSY));
         return;
     }
     if (!cmd || !*cmd) {
-        set_status(id == ID_BUILD ? "Kein Build gefunden: [ui] build=... in der Konfiguration setzen"
-                                  : "Kein Startbefehl: [ui] run=... in " PROJECT_SETTINGS " setzen");
+        set_status(GetStr(id == ID_BUILD ? MSG_ST_NO_BUILD : MSG_ST_NO_RUN), PROJECT_SETTINGS);
         return;
     }
     if (pages)
@@ -1562,14 +1599,24 @@ static void notify_toolbar(void)
     }
 }
 
-/* TextEditor mit eigener Scrollleiste */
+/* TextEditor mit eigener Scrollleiste, mit Theme-Farben (theme.c) wenn moeglich */
 static Object *editor_with_slider(Object **ed, int readonly)
 {
     Object *slider = ScrollbarObject, End;
 
     if (!slider)
         return NULL;
-    *ed = MUI_NewObject(MUIC_TextEditor,
+    *ed = theme_texteditor(readonly ? TA_OUTPUT : TA_EDITOR,
+                        MUIA_TextEditor_Slider, (ULONG)slider,
+                        MUIA_TextEditor_ReadOnly, readonly,
+                        MUIA_TextEditor_FixedFont, !readonly,
+                        MUIA_TextEditor_ConvertTabs, FALSE,
+                        MUIA_TextEditor_WrapMode, MUIV_TextEditor_WrapMode_SoftWrap,
+                        MUIA_TextEditor_ExportHook, MUIV_TextEditor_ExportHook_NoStyle,
+                        MUIA_CycleChain, 1,
+                        TAG_DONE);
+    if (!*ed)
+        *ed = MUI_NewObject(MUIC_TextEditor,
                         MUIA_TextEditor_Slider, (ULONG)slider,
                         MUIA_TextEditor_ReadOnly, readonly,
                         MUIA_TextEditor_FixedFont, !readonly,
@@ -1594,58 +1641,62 @@ static Object *build_window(int narrow)
 {
     Object *files_lv, *edit_grp, *out_grp, *agent_grp, *main_grp, *log_lv, *log_grp;
 
-    files = MUI_NewObject(MUIC_NListtree,
-                          MUIA_Frame, MUIV_Frame_InputList,
-                          MUIA_NListtree_ConstructHook, MUIV_NListtree_ConstructHook_String,
-                          MUIA_NListtree_DestructHook, MUIV_NListtree_DestructHook_String,
-                          MUIA_NListtree_CompareHook, MUIV_NListtree_CompareHook_LeavesBottom,
-                          MUIA_NListtree_DoubleClick, MUIV_NListtree_DoubleClick_All,
-                          MUIA_NListtree_EmptyNodes, TRUE,
-                          TAG_DONE);
+#define FILES_TAGS  MUIA_Frame, MUIV_Frame_InputList, \
+                    MUIA_NListtree_ConstructHook, MUIV_NListtree_ConstructHook_String, \
+                    MUIA_NListtree_DestructHook, MUIV_NListtree_DestructHook_String, \
+                    MUIA_NListtree_CompareHook, MUIV_NListtree_CompareHook_LeavesBottom, \
+                    MUIA_NListtree_DoubleClick, MUIV_NListtree_DoubleClick_All, \
+                    MUIA_NListtree_EmptyNodes, TRUE, \
+                    theme_font(0) ? MUIA_Font : TAG_IGNORE, (ULONG)theme_font(0), TAG_DONE
+#define LIST_TAGS   MUIA_Frame, MUIV_Frame_InputList, \
+                    MUIA_NList_ConstructHook, MUIV_NList_ConstructHook_String, \
+                    MUIA_NList_DestructHook, MUIV_NList_DestructHook_String
+    files = theme_nlisttree(TA_LIST, FILES_TAGS);
+    if (!files)
+        files = MUI_NewObject(MUIC_NListtree, FILES_TAGS);
     if (!files)
         return NULL;
     files_lv = MUI_NewObject(MUIC_NListview, MUIA_NListview_NList, (ULONG)files,
                              MUIA_CycleChain, 1, TAG_DONE);
-    openlist = MUI_NewObject(MUIC_NList,
-                             MUIA_Frame, MUIV_Frame_InputList,
-                             MUIA_NList_ConstructHook, MUIV_NList_ConstructHook_String,
-                             MUIA_NList_DestructHook, MUIV_NList_DestructHook_String,
-                             TAG_DONE);
+    openlist = theme_nlist(TA_LIST, LIST_TAGS, theme_font(0) ? MUIA_Font : TAG_IGNORE, (ULONG)theme_font(0), TAG_DONE);
+    if (!openlist)
+        openlist = MUI_NewObject(MUIC_NList, LIST_TAGS, TAG_DONE);
     if (!openlist || !files_lv)
         return NULL;
     files_lv = VGroup,
         Child, VGroup, MUIA_VertWeight, 70, Child, files_lv, End,
         Child, BalanceObject, End,
         Child, VGroup, MUIA_VertWeight, 30,
-            Child, TextObject, MUIA_Text_Contents, "Offene Dateien", MUIA_Font, MUIV_Font_Tiny, End,
+            Child, lbl_openfiles = TTEXT(TA_WINDOW, MUIA_Text_Contents, (ULONG)GetStr(MSG_OPEN_FILES),
+                                         MUIA_Font, MUIV_Font_Tiny, TAG_DONE),
             Child, MUI_NewObject(MUIC_NListview, MUIA_NListview_NList, (ULONG)openlist,
                                  MUIA_CycleChain, 1, TAG_DONE),
         End,
     End;
 
     /* Build-Log: jede Zeile ein Eintrag, Doppelklick springt zum Fehler */
-    buildlog = MUI_NewObject(MUIC_NList,
-                             MUIA_Frame, MUIV_Frame_InputList,
-                             MUIA_NList_ConstructHook, MUIV_NList_ConstructHook_String,
-                             MUIA_NList_DestructHook, MUIV_NList_DestructHook_String,
-                             MUIA_Font, MUIV_Font_Fixed,
-                             TAG_DONE);
+    buildlog = theme_nlist(TA_LOG, LIST_TAGS, MUIA_Font, theme_font(1) ? (ULONG)theme_font(1) : MUIV_Font_Fixed, TAG_DONE);
+    if (!buildlog)
+        buildlog = MUI_NewObject(MUIC_NList, LIST_TAGS, MUIA_Font, MUIV_Font_Fixed, TAG_DONE);
     if (!buildlog)
         return NULL;
     log_lv = MUI_NewObject(MUIC_NListview, MUIA_NListview_NList, (ULONG)buildlog,
                            MUIA_CycleChain, 1, TAG_DONE);
-    cmdinput = MUI_NewObject(MUIC_BetterString, MUIA_Frame, MUIV_Frame_String,
+    cmdinput = theme_betterstring(MUIA_Frame, MUIV_Frame_String, MUIA_CycleChain, 1, MUIA_String_MaxLen, 500,
+                                  theme_font(1) ? MUIA_Font : TAG_IGNORE, (ULONG)theme_font(1), TAG_DONE);
+    if (!cmdinput)
+        cmdinput = MUI_NewObject(MUIC_BetterString, MUIA_Frame, MUIV_Frame_String,
                              MUIA_CycleChain, 1, MUIA_String_MaxLen, 500, TAG_DONE);
     if (!cmdinput)
         cmdinput = StringObject, StringFrame, MUIA_CycleChain, 1, MUIA_String_MaxLen, 500, End;
     log_grp = VGroup,
         Child, log_lv,
         Child, HGroup,
-            Child, cmdlabel = TextObject, MUIA_Text_PreParse, (ULONG)"\33r",
-                MUIA_Text_Contents, (ULONG)"1>", MUIA_FixWidthTxt, (ULONG)"Verzeichnis>",
-                MUIA_FramePhantomHoriz, TRUE, MUIA_Frame, MUIV_Frame_String, End,
+            Child, cmdlabel = TTEXT(TA_WINDOW, MUIA_Text_PreParse, (ULONG)"\33r",
+                MUIA_Text_Contents, (ULONG)"1>", MUIA_FixWidthTxt, (ULONG)"Directory>",
+                MUIA_FramePhantomHoriz, TRUE, MUIA_Frame, MUIV_Frame_String, TAG_DONE),
             Child, HGroup, MUIA_HorizWeight, 400, Child, cmdinput, End,
-            Child, bt_run = SimpleButton("_Ausfuehren"),
+            Child, bt_run = SimpleButton(GetStr(MSG_BT_EXECUTE)),
             Child, keycatch_new(),
         End,
     End;
@@ -1657,7 +1708,10 @@ static Object *build_window(int narrow)
         return NULL;
 
     /* Eingabezeile: BetterString.mcc, sonst eingebauter String */
-    input = MUI_NewObject(MUIC_BetterString, MUIA_Frame, MUIV_Frame_String,
+    input = theme_betterstring(MUIA_Frame, MUIV_Frame_String, MUIA_CycleChain, 1, MUIA_String_MaxLen, 1000,
+                               theme_font(0) ? MUIA_Font : TAG_IGNORE, (ULONG)theme_font(0), TAG_DONE);
+    if (!input)
+        input = MUI_NewObject(MUIC_BetterString, MUIA_Frame, MUIV_Frame_String,
                           MUIA_CycleChain, 1, MUIA_String_MaxLen, 1000, TAG_DONE);
     if (!input)
         input = StringObject, StringFrame, MUIA_CycleChain, 1, MUIA_String_MaxLen, 1000, End;
@@ -1665,14 +1719,12 @@ static Object *build_window(int narrow)
                          MUIA_FixHeightTxt, (ULONG)"X", TAG_DONE);
     busy_is_mcc = busy != NULL;
     if (!busy)
-        busy = TextObject, MUIA_Text_Contents, "", End;
+        busy = TTEXT(TA_WINDOW, MUIA_Text_Contents, (ULONG)"", TAG_DONE);
 
-    slashlist = MUI_NewObject(MUIC_NList,
-                              MUIA_Frame, MUIV_Frame_InputList,
-                              MUIA_NList_ConstructHook, MUIV_NList_ConstructHook_String,
-                              MUIA_NList_DestructHook, MUIV_NList_DestructHook_String,
-                              MUIA_NList_AutoVisible, TRUE,
-                              TAG_DONE);
+    slashlist = theme_nlist(TA_LIST, LIST_TAGS, MUIA_NList_AutoVisible, TRUE,
+                            theme_font(0) ? MUIA_Font : TAG_IGNORE, (ULONG)theme_font(0), TAG_DONE);
+    if (!slashlist)
+        slashlist = MUI_NewObject(MUIC_NList, LIST_TAGS, MUIA_NList_AutoVisible, TRUE, TAG_DONE);
     if (!slashlist)
         return NULL;
     /* fest 5 Zeilen hoch; weitere Befehle per Scrollen oder Weitertippen */
@@ -1691,15 +1743,19 @@ static Object *build_window(int narrow)
         Child, slashview,
         Child, HGroup,
             Child, HGroup, MUIA_HorizWeight, 400, Child, input, End,
-            Child, bt_send = SimpleButton("_Senden"),
-            Child, bt_stop = SimpleButton("S_top"),
+            Child, bt_send = SimpleButton(GetStr(MSG_BT_SEND)),
+            Child, bt_stop = SimpleButton(GetStr(MSG_BT_STOP)),
         End,
     End;
     if (!agent_grp)
         return NULL;
 
     if (narrow) {
-        static const char *titles[] = { "Agent", "Editor", "Dateien", "Build", NULL };
+        static const char *titles[5];
+        titles[0] = GetStr(MSG_PAGE_AGENT);
+        titles[1] = GetStr(MSG_PAGE_EDITOR);
+        titles[2] = GetStr(MSG_PAGE_FILES);
+        titles[3] = GetStr(MSG_PAGE_BUILD);
         main_grp = pages = RegisterGroup(titles),
             Child, agent_grp,
             Child, edit_grp,
@@ -1729,27 +1785,101 @@ static Object *build_window(int narrow)
         MUIA_Window_Width, MUIV_Window_Width_Screen(80),
         MUIA_Window_Height, MUIV_Window_Height_Screen(75),
         MUIA_Window_Menustrip, MUI_MakeObject(MUIO_MenustripNM, (ULONG)menu, 0),
-        WindowContents, VGroup,
+        WindowContents, rootgrp = VGroup,
             Child, build_toolbar(),
             Child, HGroup,
-                Child, Label("Projekt:"),
-                Child, projtext = TextObject, TextFrame, MUIA_Background, MUII_TextBack, End,
-                Child, Label("Modell:"),
-                Child, modeltext = TextObject, TextFrame, MUIA_Background, MUII_TextBack, End,
-                Child, Label("Modus:"),
+                Child, lbl_project = TLABEL(GetStr(MSG_LBL_PROJECT)),
+                Child, projtext = TTEXT(TA_STATUS, TextFrame, MUIA_Background, MUII_TextBack, TAG_DONE),
+                Child, lbl_model = TLABEL(GetStr(MSG_PR_MODEL)),
+                Child, modeltext = TTEXT(TA_STATUS, TextFrame, MUIA_Background, MUII_TextBack, TAG_DONE),
+                Child, lbl_mode = TLABEL(GetStr(MSG_LBL_MODE)),
                 Child, modecycle = CycleObject, MUIA_Cycle_Entries, (ULONG)mode_labels,
                                    MUIA_Cycle_Active, 1, MUIA_CycleChain, 1, End,
+                Child, themecycle = CycleObject, MUIA_Cycle_Entries, (ULONG)theme_labels,
+                                    MUIA_Cycle_Active, theme.dark ? 1 : 0, MUIA_CycleChain, 1,
+                                    MUIA_Weight, 0,
+                                    MUIA_ShortHelp, (ULONG)GetStr(MSG_THEME_HELP), End,
             End,
             Child, main_grp,
             Child, HGroup,
-                Child, status = TextObject, TextFrame, MUIA_Background, MUII_TextBack,
-                                MUIA_Text_Contents, "Bereit", End,
-                Child, tokentext = TextObject, TextFrame, MUIA_Background, MUII_TextBack,
+                Child, status = TTEXT(TA_STATUS, TextFrame, MUIA_Background, MUII_TextBack,
+                                MUIA_Text_Contents, (ULONG)GetStr(MSG_ST_READY), TAG_DONE),
+                Child, tokentext = TTEXT(TA_STATUS, TextFrame, MUIA_Background, MUII_TextBack,
                                    MUIA_HorizWeight, 60, MUIA_Text_PreParse, (ULONG)"\33r",
-                                   MUIA_Text_Contents, (ULONG)"Tokens: -", End,
+                                   MUIA_Text_Contents, (ULONG)"Tokens: -", TAG_DONE),
             End,
         End,
     End;
+}
+
+/* ---------- Farben (theme.c) ---------- */
+
+/* Hintergruende (Listen, Editoren und Eingabezeilen faerben ihre Klassen selbst) */
+static void theme_apply_closed(void)
+{
+    Object *texts[4], *buttons[5];
+    int i;
+
+    texts[0] = projtext;
+    texts[1] = modeltext;
+    texts[2] = status;
+    texts[3] = tokentext;
+    buttons[0] = bt_send;
+    buttons[1] = bt_stop;
+    buttons[2] = bt_run;
+    buttons[3] = modecycle;
+    buttons[4] = themecycle;
+    /* zuerst das Fenster: MUI gibt den Hintergrund einer Gruppe an alle Kinder weiter */
+    theme_background(rootgrp, TA_WINDOW, MUII_WindowBack);
+    for (i = 0; i < 4; i++)
+        theme_background(texts[i], TA_STATUS, MUII_TextBack);
+    for (i = 0; i < 5; i++)
+        theme_background(buttons[i], TA_BUTTON, MUII_ButtonBack);
+    /* Werkzeugleiste: TheBar zeichnet ihre Knoepfe auf den eigenen Hintergrund */
+    if (toolbar_is_thebar)
+        theme_background(toolbar, TA_BUTTON, MUII_WindowBack);
+    else
+        for (i = 0; tb_buttons[i].img != MUIV_TheBar_End; i++)
+            if (tb_buttons[i].obj)
+                theme_background(tb_buttons[i].obj, TA_BUTTON, MUII_ButtonBack);
+}
+
+/* Schriftfarben der Text-Objekte: braucht Pens, also erst bei offenem Fenster */
+static void theme_apply_open(void)
+{
+    Object *t[10];
+    int i;
+
+    t[0] = status;
+    t[1] = projtext;
+    t[2] = modeltext;
+    t[3] = tokentext;
+    t[4] = lbl_project;
+    t[5] = lbl_model;
+    t[6] = lbl_mode;
+    t[7] = lbl_openfiles;
+    t[8] = cmdlabel;
+    t[9] = busy_is_mcc ? NULL : busy;
+    theme_pens_obtain(rootgrp);
+    for (i = 0; i < 10; i++)
+        if (t[i])
+            DoMethod(t[i], MUIM_ThemeText_Refresh);
+}
+
+/* Neue Farben: TextEditor und BetterString lesen sie nur beim Oeffnen des Fensters */
+static void theme_restyle(void)
+{
+    Object *active = NULL;
+
+    get(win, MUIA_Window_ActiveObject, &active);
+    theme_pens_release(rootgrp);
+    set(win, MUIA_Window_Open, FALSE);
+    theme_apply_closed();
+    set(win, MUIA_Window_Open, TRUE);
+    set(win, MUIA_Window_Activate, TRUE);
+    theme_apply_open();
+    if (active)
+        set(win, MUIA_Window_ActiveObject, active);
 }
 
 /* ---------- Neues Projekt ---------- */
@@ -1764,7 +1894,7 @@ static void create_project(void)
     const char *fp = newproj_first_prompt();
 
     if (agent_busy) {
-        set_status("Der Agent arbeitet noch - Stop oder warten");
+        set_status(GetStr(MSG_AGENT_BUSY));
         return;
     }
     if (pending_first) {
@@ -1773,7 +1903,7 @@ static void create_project(void)
     }
     if (fp && (pending_first = AllocVec(strlen(fp) + 1, MEMF_ANY)))
         strcpy(pending_first, fp);
-    out_append("\n\33bNeues Projekt wird angelegt ...\33n\n");
+    out_append(GetStr(MSG_OUT_CREATING));
     gui_agent_newproject(newproj_spec());
     set_busy(1);
 }
@@ -1785,7 +1915,7 @@ static void update_model_label(void)
     ProviderSettings ps;
 
     provider_settings(&cfg, NULL, &ps);
-    snprintf(buf, sizeof(buf), "%s: %s", ps.def->name, *ps.model ? ps.model : "(kein Modell)");
+    snprintf(buf, sizeof(buf), "%s: %s", ps.def->name, *ps.model ? ps.model : GetStr(MSG_NO_MODEL));
     set(modeltext, MUIA_Text_Contents, buf);
 }
 
@@ -1795,11 +1925,11 @@ static void update_model_label(void)
    malloc), Werte setzen, speichern, Agent neu starten und die Sitzung fortsetzen. */
 static void apply_prefs(int save, struct MsgPort *events, void (*fill)(Config *))
 {
-    static const char *header = "# AmiCode Konfiguration (Einstellungsfenster). Enthaelt API-Keys - nicht weitergeben.";
+    static const char *header = "# AmiCode configuration (settings window). Contains API keys - do not share.";
     BPTR lock;
 
     if (agent_busy) {
-        set_status("Erst den laufenden Auftrag beenden (Stop), dann speichern");
+        set_status(GetStr(MSG_ST_STOP_THEN_SAVE));
         return;
     }
     gui_agent_stop();
@@ -1818,7 +1948,8 @@ static void apply_prefs(int save, struct MsgPort *events, void (*fill)(Config *)
         FreeVec(model_list);
         model_list = NULL;
     }
-    out_append(save ? "\n\33bEinstellungen gespeichert.\33n\n" : "\n\33bEinstellungen verwendet (bis zum Neustart).\33n\n");
+    out_append(GetStr(save ? MSG_OUT_PREFS_SAVED : MSG_OUT_PREFS_USED));
+    theme_restyle();
     start_agent(events);
     if (file_exists("amicode.session"))
         gui_agent_resume();     /* Unterhaltung mit dem neuen Modell weiterfuehren */
@@ -1836,6 +1967,39 @@ static int screen_width(void)
     return w;
 }
 
+/* Texte der statischen Tabellen (Menue, Werkzeugleiste) aus dem Katalog */
+static void localize_tables(void)
+{
+    int i, j;
+
+    for (i = 0; menu[i].nm_Type != NM_END; i++)
+        if (menu_texts[i])
+            menu[i].nm_Label = (STRPTR)GetStr(menu_texts[i]);
+    for (i = 0; tb_buttons[i].img != MUIV_TheBar_End; i++)
+        for (j = 0; j < (int)(sizeof(tb_texts) / sizeof(tb_texts[0])); j++)
+            if (tb_buttons[i].img != MUIV_TheBar_BarSpacer && tb_buttons[i].ID == tb_texts[j].id) {
+                tb_buttons[i].text = (STRPTR)GetStr(tb_texts[j].text);
+                tb_buttons[i].help = (STRPTR)GetStr(tb_texts[j].help);
+            }
+}
+
+/* Anleitung in der Sprache des Katalogs (PROGDIR:Help/<sprache>/), sonst die englische */
+static const char *guide_file(void)
+{
+    static char path[80];
+    const char *lang = locale_language();
+    BPTR lock;
+
+    if (lang) {
+        snprintf(path, sizeof(path), "PROGDIR:Help/%.30s/AmiCodeIDE.guide", lang);
+        if ((lock = Lock(path, SHARED_LOCK))) {
+            UnLock(lock);
+            return path;
+        }
+    }
+    return GUIDE_FILE;
+}
+
 int main(int argc, char **argv)
 {
     struct MsgPort *events;
@@ -1845,12 +2009,19 @@ int main(int argc, char **argv)
     LONG mode;
 
     (void)vers;
+    locale_open();
+    localize_tables();
     if (!(MUIMasterBase = OpenLibrary(MUIMASTER_NAME, MUIMASTER_VMIN))) {
-        printf("AmiCodeIDE braucht muimaster.library (MUI 3.8 oder neuer)\n");
+        printf("%s\n", GetStr(MSG_NEED_MUI));
+        locale_close();
         return RETURN_FAIL;
     }
     if (!config_load(&cfg, CONFIG_DEFAULT_PATH))
         config_load(&cfg, "ENVARC:AmiCode/amicode.conf");
+    theme_load(&cfg);
+    theme_labels[0] = GetStr(MSG_THEME_LIGHT);
+    theme_labels[1] = GetStr(MSG_THEME_DARK);
+    theme_classes_init();
     if (!(events = CreateMsgPort()))
         goto out_lib;
 
@@ -1868,9 +2039,9 @@ int main(int argc, char **argv)
         MUIA_Application_Title, (ULONG)"AmiCodeIDE",
         MUIA_Application_Version, (ULONG)vers,
         MUIA_Application_Copyright, (ULONG)"2026",
-        MUIA_Application_Description, (ULONG)"Coding-Agent fuer AmigaOS",
+        MUIA_Application_Description, (ULONG)GetStr(MSG_APP_DESCRIPTION),
         MUIA_Application_Base, (ULONG)"AMICODEIDE",
-        MUIA_Application_HelpFile, (ULONG)GUIDE_FILE,
+        MUIA_Application_HelpFile, (ULONG)guide_file(),
         SubWindow, win = build_window(narrow),
         SubWindow, prefswin = prefs_create(),
         SubWindow, newprojwin = newproj_create(),
@@ -1880,13 +2051,13 @@ int main(int argc, char **argv)
     End;
     if (!app || !win || !prefswin || !newprojwin || !projselwin || !sessionswin || !skillswin) {
         MUI_Request(NULL, NULL, 0, "AmiCodeIDE", "OK",
-                    "Oberflaeche konnte nicht aufgebaut werden.\n"
-                    "Benoetigt: TextEditor.mcc, NList.mcc, NListview.mcc, NListtree.mcc\n"
-                    "(Aminet: dev/mui/MCC_TextEditor, dev/mui/MCC_NList)");
+                    (char *)GetStr(MSG_REQ_NO_GUI));
         if (app)
             MUI_DisposeObject(app);
         if (keycatch_class)
             MUI_DeleteCustomClass(keycatch_class);
+        theme_classes_free();
+        theme_fonts_close();
         goto out_port;
     }
 
@@ -1926,6 +2097,8 @@ int main(int argc, char **argv)
              (ULONG)app, 2, MUIM_Application_ReturnID, ID_RUN_CMD);
     DoMethod(modecycle, MUIM_Notify, MUIA_Cycle_Active, MUIV_EveryTime,
              (ULONG)app, 2, MUIM_Application_ReturnID, ID_MODE);
+    DoMethod(themecycle, MUIM_Notify, MUIA_Cycle_Active, MUIV_EveryTime,
+             (ULONG)app, 2, MUIM_Application_ReturnID, ID_THEME);
 
     {
         static char last[512];
@@ -1939,10 +2112,16 @@ int main(int argc, char **argv)
         }
         startup_choose = !shown;
     }
+    theme_apply_closed();
     set(win, MUIA_Window_Open, TRUE);
+    theme_apply_open();
     set(win, MUIA_Window_ActiveObject, input);
 
-    out_append("\33bAmiCodeIDE " VERSION_STRING "\33n - Auftrag unten eingeben und mit Return senden.\n");
+    {
+        char hello[200];
+        snprintf(hello, sizeof(hello), GetStr(MSG_OUT_WELCOME), VERSION_STRING);
+        out_append(hello);
+    }
     gui_agent_version(VERSION_STRING);
     start_agent(events);
     if (startup_choose) {
@@ -2003,11 +2182,11 @@ int main(int argc, char **argv)
             open_new_project();
             break;
         case ID_GUIDE:
-            DoMethod(app, MUIM_Application_ShowHelp, (ULONG)win, (ULONG)GUIDE_FILE, (ULONG)"MAIN", 0);
+            DoMethod(app, MUIM_Application_ShowHelp, (ULONG)win, (ULONG)guide_file(), (ULONG)"MAIN", 0);
             break;
         case MUIV_Application_ReturnID_Quit:
         case ID_QUIT:
-            if (confirm_discard("Beim Beenden gehen sie verloren."))
+            if (confirm_discard(GetStr(MSG_LOST_QUIT)))
                 running = 0;
             break;
         case ID_TAB_SELECT:
@@ -2033,7 +2212,7 @@ int main(int argc, char **argv)
             break;
         case ID_STOP:
             gui_agent_break();
-            set_status("Stop gesendet");
+            set_status(GetStr(MSG_ST_STOP_SENT));
             break;
         case ID_OPEN_FILE:
             file_doubleclick();
@@ -2053,7 +2232,7 @@ int main(int argc, char **argv)
         case ID_UNDO:
         case ID_DIFF:
             if (agent_busy) {
-                set_status("Der Agent arbeitet noch - Stop oder warten");
+                set_status(GetStr(MSG_AGENT_BUSY));
                 break;
             }
             if (id == ID_UNDO)
@@ -2071,7 +2250,7 @@ int main(int argc, char **argv)
             break;
         case ID_PROJECT:
             if (agent_busy)
-                set_status("Erst den laufenden Auftrag beenden");
+                set_status(GetStr(MSG_FINISH_TASK_FIRST));
             else
                 projsel_open(projects_dir(), project);
             break;
@@ -2083,7 +2262,7 @@ int main(int argc, char **argv)
             break;
         case ID_RESUME:
             if (agent_busy) {
-                set_status("Erst den laufenden Auftrag beenden");
+                set_status(GetStr(MSG_FINISH_TASK_FIRST));
             } else {
                 DoMethod(output, MUIM_TextEditor_ClearText);
                 gui_agent_prompt("/resume");
@@ -2092,7 +2271,7 @@ int main(int argc, char **argv)
             break;
         case ID_SESSIONS:
             if (agent_busy) {
-                set_status("Erst den laufenden Auftrag beenden");
+                set_status(GetStr(MSG_FINISH_TASK_FIRST));
             } else {
                 sessions_open();
                 gui_agent_sessions(NULL);
@@ -2103,11 +2282,19 @@ int main(int argc, char **argv)
             get(modecycle, MUIA_Cycle_Active, &mode);
             gui_agent_mode((int)mode);
             break;
+        case ID_THEME: {
+            LONG a = 0;
+            get(themecycle, MUIA_Cycle_Active, &a);
+            if ((a != 0) != theme.dark) {
+                theme.dark = a != 0;
+                theme_save_mode();
+                theme_restyle();
+            }
+            break;
+        }
         case ID_ABOUT:
-            MUI_Request(app, win, 0, "Ueber AmiCodeIDE", "OK",
-                        "\33c\33bAmiCodeIDE " VERSION_STRING "\33n\n"
-                        "Coding-Agent fuer AmigaOS 3.2\n\nModell: %s",
-                        (ULONG)config_get(&cfg, "provider.model", "gpt-5.4-mini"));
+            MUI_Request(app, win, 0, (char *)GetStr(MSG_ABOUT_TITLE), "OK", (char *)GetStr(MSG_ABOUT),
+                        (ULONG)VERSION_STRING, (ULONG)config_get(&cfg, "provider.model", "gpt-5.4-mini"));
             break;
         }
         if (running && sigs) {
@@ -2126,10 +2313,10 @@ int main(int argc, char **argv)
             switch_pending = 0;
             strcpy(dir, pending_project);
             pending_project[0] = 0;
-            if (confirm_discard("Beim Wechsel ins neue Projekt gehen sie verloren.")) {
+            if (confirm_discard(GetStr(MSG_LOST_NEWPROJ))) {
                 gui_agent_stop();
                 if (set_project(dir)) {
-                    out_append("\n\33bProjekt gewechselt:\33n ");
+                    out_append(GetStr(MSG_OUT_PROJECT_SWITCHED));
                     out_append(project);
                     out_append("\n");
                 }
@@ -2141,7 +2328,7 @@ int main(int argc, char **argv)
                     out_append("\33n\n");
                     gui_agent_prompt(pending_first);
                     set_busy(1);
-                    set_status("Agent arbeitet am neuen Projekt ...");
+                    set_status(GetStr(MSG_ST_AGENT_NEWPROJ));
                 }
             }
             if (pending_first) {
@@ -2151,11 +2338,14 @@ int main(int argc, char **argv)
         }
     }
 
+    theme_pens_release(rootgrp);
     set(win, MUIA_Window_Open, FALSE);
     gui_agent_stop();
     MUI_DisposeObject(app);
     if (keycatch_class)
         MUI_DeleteCustomClass(keycatch_class);
+    theme_classes_free();
+    theme_fonts_close();
 out_port:
     DeleteMsgPort(events);
 out_lib:
@@ -2166,5 +2356,6 @@ out_lib:
     config_free(&projcfg);
     config_free(&cfg);
     CloseLibrary(MUIMasterBase);
+    locale_close();
     return RETURN_OK;
 }

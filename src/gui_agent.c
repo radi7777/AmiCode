@@ -19,6 +19,7 @@
 #include "ui.h"
 #include "provider.h"
 #include "toolchain.h"
+#include "amiloc.h"
 
 enum { AC_START, AC_PROMPT, AC_RESET, AC_RESUME, AC_MODE, AC_SHELL, AC_UNDO, AC_DIFF, AC_MODELS,
        AC_CHOICES, AC_NEWPROJECT, AC_SESSIONS, AC_CMDLINE, AC_QUIT };
@@ -153,7 +154,7 @@ static void cmdline(ToolCtx *tools, char *cmd)
     }
     if (!lock) {
         char msg[300];
-        snprintf(msg, sizeof(msg), "CD: Verzeichnis \"%s\" nicht gefunden", arg);
+        snprintf(msg, sizeof(msg), GetStr(MSG_GA_CD_FAIL), arg);
         send_event(UI_OUTPUT, msg, 0);
         return;
     }
@@ -200,7 +201,7 @@ static void agent_entry(void)
     /* bsdsocket und AmiSSL gelten pro Prozess: hier oeffnen, nicht in der GUI */
     net_ok = net_open(err, sizeof(err));
     if (!net_ok)
-        ui_printf(UI_ERROR, "Netzwerk: %s", err);
+        ui_printf(UI_ERROR, GetStr(MSG_GA_NETWORK), err);
     report_cwd(tools.root_lock);
     send_event(EV_IDLE, "", 0);
 
@@ -223,21 +224,21 @@ static void agent_entry(void)
             case AC_PROMPT:
                 if (text && !agent_command(&ag, text)) {
                     if (!net_ok)
-                        ui_printf(UI_ERROR, "Keine Netzwerkverbindung (siehe oben).");
+                        ui_printf(UI_ERROR, "%s", GetStr(MSG_GA_NO_NET_ABOVE));
                     else
                         agent_ask(&ag, text, agent_max_steps);
                 }
                 break;
             case AC_RESET:
                 agent_reset(&ag);
-                ui_printf(UI_INFO, "Neue Sitzung begonnen.");
+                ui_printf(UI_INFO, "%s", GetStr(MSG_NEW_SESSION));
                 break;
             case AC_RESUME: {
                 int n = agent_resume(&ag);
                 if (n < 0)
-                    ui_printf(UI_ERROR, "Keine gespeicherte Sitzung gefunden.");
+                    ui_printf(UI_ERROR, "%s", GetStr(MSG_SESSION_NOT_FOUND));
                 else
-                    ui_printf(UI_INFO, "Sitzung mit %d Nachrichten geladen.", n);
+                    ui_printf(UI_INFO, GetStr(MSG_GA_SESSION_LOADED), n);
                 break;
             }
             case AC_SHELL:
@@ -275,13 +276,13 @@ static void agent_entry(void)
                     sb_init(&out);
                     sb_add(&out, "prefs\n");
                     if (!net_ok)
-                        ui_printf(UI_ERROR, "Keine Netzwerkverbindung.");
+                        ui_printf(UI_ERROR, "%s", GetStr(MSG_GA_NO_NET));
                     else if ((n = provider_models(start_cfg, text, base, key ? key : "", &out,
                                                   err, sizeof(err))) < 0)
-                        ui_printf(UI_ERROR, "Modelle laden: %s", err);
+                        ui_printf(UI_ERROR, GetStr(MSG_GA_MODELS_ERR), err);
                     else {
                         ui->print(UI_MODELS, out.buf);
-                        ui_printf(UI_INFO, "%d Modelle geladen.", n);
+                        ui_printf(UI_INFO, GetStr(MSG_GA_MODELS_LOADED), n);
                     }
                     sb_free(&out);
                 }
@@ -337,7 +338,7 @@ static void agent_entry(void)
                 break;
             case AC_MODE:
                 tools.mode = value;
-                ui_printf(UI_INFO, "Modus: %s", mode_name(value));
+                ui_printf(UI_INFO, GetStr(MSG_GA_MODE), mode_name(value));
                 break;
             }
             free(text);

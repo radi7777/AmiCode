@@ -16,3 +16,4 @@ amicode.session
 # Local configuration with API keys
 amicode.conf
 *.local
+__pycache__/

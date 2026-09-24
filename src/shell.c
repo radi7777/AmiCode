@@ -12,6 +12,7 @@
 
 #include "shell.h"
 #include "ui.h"
+#include "amiloc.h"
 
 #define POLL_TICKS  10      /* 1/5 Sekunde */
 
@@ -81,7 +82,7 @@ long shell_run(const char *cmd, BPTR in, BPTR out, long stack, long timeout, int
     SetSignal(0, job.sigmask | SIGBREAKF_CTRL_C);
 
     if (!CreateNewProcTags(NP_Entry, (ULONG)cmd_entry,
-                           NP_Name, (ULONG)"AmiCode Befehl",
+                           NP_Name, (ULONG)"AmiCode command",
                            NP_StackSize, 16384,
                            TAG_DONE)) {
         FreeSignal(sig);
@@ -94,13 +95,12 @@ long shell_run(const char *cmd, BPTR in, BPTR out, long stack, long timeout, int
         if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
             *status = SHELL_BREAK;
             send_break(&job);
-            ui_printf(UI_DETAIL, breaks++ ? "(Befehl reagiert nicht auf CTRL-C, warte weiter ...)"
-                                          : "(CTRL-C an Befehl gesendet)");
+            ui_printf(UI_DETAIL, "%s", GetStr(breaks++ ? MSG_SHELL_NO_BREAK : MSG_SHELL_BREAK_SENT));
         }
         if (timeout > 0 && ticks >= timeout * 50 && ticks - POLL_TICKS < timeout * 50) {
             *status = SHELL_TIMEOUT;
             send_break(&job);
-            ui_printf(UI_DETAIL, "(Zeitlimit von %ld s erreicht, Break gesendet)", timeout);
+            ui_printf(UI_DETAIL, GetStr(MSG_SHELL_TIMEOUT), timeout);
         }
     }
     SetSignal(0, job.sigmask);

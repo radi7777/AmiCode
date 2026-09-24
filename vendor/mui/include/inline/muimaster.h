@@ -89,6 +89,16 @@ extern struct Library *MUIMasterBase;
         LONG, ___w, d2, LONG, ___h, d3, ULONG, ___flags, d4, \
     , MUIMASTER_BASE_NAME)
 
+/* Offsets aus muimaster_lib.fd (bias 30, nach vier privaten Eintraegen) */
+#define MUI_ObtainPen(___mri, ___spec, ___flags) \
+    LP3(0x9c, LONG, MUI_ObtainPen, struct MUI_RenderInfo *, ___mri, a0, \
+        struct MUI_PenSpec *, ___spec, a1, ULONG, ___flags, d0, \
+    , MUIMASTER_BASE_NAME)
+
+#define MUI_ReleasePen(___mri, ___pen) \
+    LP2NR(0xa2, MUI_ReleasePen, struct MUI_RenderInfo *, ___mri, a0, LONG, ___pen, d0, \
+    , MUIMASTER_BASE_NAME)
+
 /* ---- varargs wrappers ---------------------------------------------------- */
 /* OUT-OF-LINE in src/amiga/muistubs.c. As static __inline HERE, GCC 6
  * proved the varargs unread (no va_arg in the body) and DROPPED them at

@@ -20,6 +20,8 @@
 #include <clib/alib_protos.h>
 
 #include "gui_projsel.h"
+#include "amiloc.h"
+#include "theme.h"
 
 enum { SID_OPEN = PROJSEL_ID_BASE, SID_NEW, SID_OTHER, SID_CANCEL, SID_DCLICK };
 
@@ -36,7 +38,7 @@ Object *projsel_create(void)
     if (!list)
         return NULL;
     win = WindowObject,
-        MUIA_Window_Title, (ULONG)"AmiCodeIDE - Projekt oeffnen",
+        MUIA_Window_Title, (ULONG)GetStr(MSG_PS_TITLE),
         MUIA_Window_ID, MAKE_ID('A','M','C','O'),
         MUIA_HelpNode, (ULONG)"NEWPROJECT",
         WindowContents, VGroup,
@@ -46,10 +48,10 @@ Object *projsel_create(void)
                                  MUIA_FixWidthTxt, (ULONG)"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
                                  MUIA_CycleChain, 1, TAG_DONE),
             Child, HGroup,
-                Child, bt_open = SimpleButton("_Oeffnen"),
-                Child, bt_new = SimpleButton("_Neues Projekt..."),
-                Child, bt_other = SimpleButton("_Andere Schublade..."),
-                Child, bt_cancel = SimpleButton("Abbre_chen"),
+                Child, bt_open = SimpleButton(GetStr(MSG_PS_OPEN)),
+                Child, bt_new = SimpleButton(GetStr(MSG_PS_NEW)),
+                Child, bt_other = SimpleButton(GetStr(MSG_PS_OTHER)),
+                Child, bt_cancel = SimpleButton(GetStr(MSG_CANCEL_C)),
             End,
         End,
     End;
@@ -110,9 +112,10 @@ int projsel_open(const char *projects_dir, const char *current)
     }
     set(list, MUIA_NList_Quiet, FALSE);
     set(list, MUIA_NList_Active, n ? active : MUIV_NList_Active_Off);
-    snprintf(text, sizeof(text), n ? "Projekte in %s:" : "Noch keine Projekte in %s - lege eins an.", base);
+    snprintf(text, sizeof(text), GetStr(n ? MSG_PS_LIST : MSG_PS_EMPTY), base);
     set(info, MUIA_Text_Contents, text);
     set(win, MUIA_Window_Open, TRUE);
+    theme_list(list, TA_LIST);
     set(win, MUIA_Window_ActiveObject, list);
     return n;
 }

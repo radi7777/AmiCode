@@ -25,6 +25,7 @@
 
 #include "net.h"
 #include "json.h"
+#include "amiloc.h"
 
 struct Library *SocketBase = NULL;
 struct Library *AmiSSLMasterBase = NULL;
@@ -57,11 +58,11 @@ static void set_ssl_err(char *err, int errlen, const char *prefix)
 int net_open(char *err, int errlen)
 {
     if (!(SocketBase = OpenLibrary("bsdsocket.library", 4))) {
-        set_err(err, errlen, "bsdsocket.library nicht gefunden - TCP/IP-Stack gestartet?");
+        set_err(err, errlen, GetStr(MSG_NET_NO_BSD));
         return 0;
     }
     if (!(AmiSSLMasterBase = OpenLibrary("amisslmaster.library", AMISSLMASTER_MIN_VERSION))) {
-        set_err(err, errlen, "amisslmaster.library (AmiSSL 5) nicht gefunden");
+        set_err(err, errlen, GetStr(MSG_NET_NO_AMISSL));
         return 0;
     }
     if (OpenAmiSSLTags(AMISSL_CURRENT_VERSION,
@@ -72,7 +73,7 @@ int net_open(char *err, int errlen)
                        AmiSSL_SocketBase, (ULONG)SocketBase,
                        AmiSSL_ErrNoPtr, (ULONG)&errno,
                        TAG_DONE) != 0) {
-        set_err(err, errlen, "AmiSSL konnte nicht initialisiert werden (Version zu alt?)");
+        set_err(err, errlen, GetStr(MSG_NET_AMISSL_INIT));
         return 0;
     }
 
@@ -84,7 +85,7 @@ int net_open(char *err, int errlen)
     SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
     /* nutzt AmiSSL:Certs */
     if (!SSL_CTX_set_default_verify_paths(ssl_ctx)) {
-        set_ssl_err(err, errlen, "Zertifikatsspeicher nicht ladbar");
+        set_ssl_err(err, errlen, GetStr(MSG_NET_CERTS));
         return 0;
     }
     return 1;
@@ -149,11 +150,11 @@ static int tcp_connect(const char *host, int port, char *err, int errlen)
     int s;
 
     if (!(he = gethostbyname((STRPTR)host))) {
-        snprintf(err, errlen, "DNS: '%s' nicht aufloesbar", host);
+        snprintf(err, errlen, GetStr(MSG_NET_DNS), host);
         return -1;
     }
     if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        set_err(err, errlen, "socket() fehlgeschlagen");
+        set_err(err, errlen, GetStr(MSG_NET_SOCKET));
         return -1;
     }
     memset(&sa, 0, sizeof(sa));
@@ -161,7 +162,7 @@ static int tcp_connect(const char *host, int port, char *err, int errlen)
     sa.sin_port = htons(port);
     memcpy(&sa.sin_addr, he->h_addr, he->h_length);
     if (connect(s, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
-        snprintf(err, errlen, "Verbindung zu %s:%d fehlgeschlagen (errno %d)", host, port, errno);
+        snprintf(err, errlen, GetStr(MSG_NET_CONNECT), host, port, errno);
         CloseSocket(s);
         return -1;
     }
@@ -309,7 +310,7 @@ static int conn_request(Conn *c, const char *url, const char *extra_headers,
     c->ssl = NULL;
     c->sock = -1;
     if (!parse_url(url, host, sizeof(host), &port, &path, &tls)) {
-        snprintf(err, errlen, "Ungueltige URL: %s", url);
+        snprintf(err, errlen, GetStr(MSG_NET_BAD_URL), url);
         return 0;
     }
     if ((c->sock = tcp_connect(host, port, err, errlen)) < 0)
@@ -329,12 +330,12 @@ static int conn_request(Conn *c, const char *url, const char *extra_headers,
     if (SSL_connect(c->ssl) != 1) {
         long vr = SSL_get_verify_result(c->ssl);
         if (vr != X509_V_OK) {
-            snprintf(err, errlen, "TLS: Zertifikat abgelehnt: %s%s",
+            snprintf(err, errlen, GetStr(MSG_NET_CERT_REJECTED),
                      X509_verify_cert_error_string(vr),
                      (vr == X509_V_ERR_CERT_NOT_YET_VALID || vr == X509_V_ERR_CERT_HAS_EXPIRED)
-                         ? " - Systemuhr pruefen!" : "");
+                         ? GetStr(MSG_NET_CHECK_CLOCK) : "");
         } else {
-            set_ssl_err(err, errlen, "TLS-Handshake fehlgeschlagen");
+            set_ssl_err(err, errlen, GetStr(MSG_NET_HANDSHAKE));
         }
         conn_close(c);
         return 0;
@@ -362,7 +363,7 @@ send_request:
         (extra_headers && !conn_write(c, extra_headers, strlen(extra_headers))) ||
         !conn_write(c, "\r\n", 2) ||
         (body && !conn_write(c, body, body_len))) {
-        set_ssl_err(err, errlen, "Senden fehlgeschlagen");
+        set_ssl_err(err, errlen, GetStr(MSG_NET_SEND));
         conn_close(c);
         return 0;
     }
@@ -375,13 +376,13 @@ static int read_all(Conn *c, char **buf, unsigned long *len, unsigned long *cap,
     for (;;) {
         int n;
         if (SetSignal(0, 0) & SIGBREAKF_CTRL_C) {
-            set_err(err, errlen, "Abgebrochen (CTRL-C)");
+            set_err(err, errlen, GetStr(MSG_ABORTED_CTRLC));
             return 0;
         }
         if (*len + 16385 > *cap) {
             char *nb = realloc(*buf, *cap * 2);
             if (!nb) {
-                set_err(err, errlen, "Kein Speicher fuer Antwort");
+                set_err(err, errlen, GetStr(MSG_NO_MEMORY_ANSWER));
                 return 0;
             }
             *buf = nb;
@@ -404,7 +405,7 @@ static int finish_body(char *buf, unsigned long len, HttpResponse *resp, char *e
     int chunked;
 
     if (strncmp(buf, "HTTP/1.", 7) != 0 || !(hend = strstr(buf, "\r\n\r\n"))) {
-        set_err(err, errlen, "Ungueltige HTTP-Antwort");
+        set_err(err, errlen, GetStr(MSG_NET_BAD_HTTP));
         return 0;
     }
     resp->status = atoi(buf + 9);
@@ -416,7 +417,7 @@ static int finish_body(char *buf, unsigned long len, HttpResponse *resp, char *e
     r = len - (hend - buf);
     memmove(buf, hend, r + 1);
     if (chunked && (r = dechunk(buf, r)) < 0) {
-        set_err(err, errlen, "Fehlerhafte Chunked-Antwort");
+        set_err(err, errlen, GetStr(MSG_NET_BAD_CHUNKED));
         return 0;
     }
     resp->body = buf;
@@ -438,7 +439,7 @@ int https_post(const char *url, const char *extra_headers,
     if (!conn_request(&c, url, extra_headers, body, body_len, err, errlen))
         return 0;
     if (!(buf = malloc(cap))) {
-        set_err(err, errlen, "Kein Speicher");
+        set_err(err, errlen, GetStr(MSG_NO_MEMORY));
     } else if (read_all(&c, &buf, &len, &cap, err, errlen) &&
                finish_body(buf, len, resp, err, errlen)) {
         ok = 1;
@@ -462,7 +463,7 @@ int https_get(const char *url, const char *extra_headers,
     if (!conn_request(&c, url, extra_headers, NULL, 0, err, errlen))
         return 0;
     if (!(buf = malloc(cap))) {
-        set_err(err, errlen, "Kein Speicher");
+        set_err(err, errlen, GetStr(MSG_NO_MEMORY));
     } else if (read_all(&c, &buf, &len, &cap, err, errlen) &&
                finish_body(buf, len, resp, err, errlen)) {
         ok = 1;
@@ -511,7 +512,7 @@ int http_fetch(const char *url, const char *extra_headers, HttpResponse *resp,
         }
         return 1;
     }
-    snprintf(err, errlen, "Zu viele Weiterleitungen");
+    snprintf(err, errlen, "%s", GetStr(MSG_NET_REDIRECTS));
     return 0;
 }
 
@@ -644,7 +645,7 @@ static int post_stream(const char *url, const char *extra_headers,
     if (!conn_request(&c, url, extra_headers, body, body_len, err, errlen))
         return 0;
     if (!(buf = malloc(cap))) {
-        set_err(err, errlen, "Kein Speicher");
+        set_err(err, errlen, GetStr(MSG_NO_MEMORY));
         goto out;
     }
 
@@ -652,16 +653,16 @@ static int post_stream(const char *url, const char *extra_headers,
     while (!hend) {
         int n;
         if (SetSignal(0, 0) & SIGBREAKF_CTRL_C) {
-            set_err(err, errlen, "Abgebrochen (CTRL-C)");
+            set_err(err, errlen, GetStr(MSG_ABORTED_CTRLC));
             goto out;
         }
         if (len + 4097 > cap) {
-            set_err(err, errlen, "HTTP-Header zu gross");
+            set_err(err, errlen, GetStr(MSG_NET_HEADER_BIG));
             goto out;
         }
         n = conn_read(&c, buf + len, 4096);
         if (n <= 0) {
-            set_err(err, errlen, "Verbindung vor Ende der Header geschlossen");
+            set_err(err, errlen, GetStr(MSG_NET_HEADER_CLOSED));
             goto out;
         }
         len += n;
@@ -669,7 +670,7 @@ static int post_stream(const char *url, const char *extra_headers,
         hend = strstr(buf, "\r\n\r\n");
     }
     if (strncmp(buf, "HTTP/1.", 7) != 0) {
-        set_err(err, errlen, "Ungueltige HTTP-Antwort");
+        set_err(err, errlen, GetStr(MSG_NET_BAD_HTTP));
         goto out;
     }
     resp->status = atoi(buf + 9);
@@ -692,7 +693,7 @@ static int post_stream(const char *url, const char *extra_headers,
     for (;;) {
         int n;
         if (SetSignal(0, 0) & SIGBREAKF_CTRL_C) {
-            set_err(err, errlen, "Abgebrochen (CTRL-C)");
+            set_err(err, errlen, GetStr(MSG_ABORTED_CTRLC));
             goto out;
         }
         n = conn_read(&c, buf, 4096);

@@ -1,0 +1,778 @@
+## version $VER: AmiCode.catalog 0.30 (24.09.2026)
+## language deutsch
+## codeset 0
+;
+MSG_CLI_ERROR
+Fehler: %s\n
+MSG_CLI_SWITCH_DIR
+Wechseln mit: CD \"%s\"\n
+MSG_CLI_ASK
+\n  ? %s\n    Erlauben? [j]a / [n]ein / [i]mmer / [q] Auftrag abbrechen (Return = nein): 
+MSG_CLI_NO_INPUT
+(keine Eingabe moeglich - abgelehnt)
+MSG_CONTINUE_PROMPT
+Setze die unterbrochene Arbeit fort.
+MSG_CLI_USAGE
+AmiCode %s - Coding-Agent fuer AmigaOS\nAufruf: amicode [MODE safe|project|full] [STEPS n] [RESUME] [<Auftrag>]\nOhne Auftrag: interaktiver Modus. Arbeitet im aktuellen Verzeichnis.\nCTRL-C bricht den laufenden Befehl bzw. Auftrag ab.\n
+MSG_CLI_INTERACTIVE
+Interaktiver Modus. /help zeigt die Befehle, /exit beendet.
+MSG_CLI_PROMPT
+Auftrag
+MSG_CLI_NO_CONFIG
+Konfiguration '%s' nicht lesbar.\n
+MSG_CLI_BAD_MODE
+Unbekannter Modus '%s' (safe, project, full)\n
+MSG_CLI_NO_CWD
+Aktuelles Verzeichnis nicht ermittelbar
+MSG_NETWORK_ERR
+Netzwerk: %s\n
+MSG_CLI_BANNER
+AmiCode %s | %s: %s | Modus %s | max. %d Schritte\nProjekt: %s\n
+MSG_NO_MODEL
+(kein Modell)
+MSG_NO_MEMORY
+Kein Speicher
+MSG_CLI_NO_SESSION
+Keine gespeicherte Sitzung gefunden (%s).\n
+MSG_CLI_RESUMED
+Sitzung mit %d Nachrichten fortgesetzt.\n
+MSG_SESSION_ARCHIVE_FAIL
+Sitzung konnte nicht archiviert werden (%s)
+MSG_SESSION_UNKNOWN
+Keine Sitzung \"%s\" - /sessions zeigt die Liste.
+MSG_SESSION_CURRENT
+Aktuelle Sitzung: %s\n
+MSG_SESSION_CURRENT_EMPTY
+Aktuelle Sitzung: (noch leer)\n
+MSG_SESSION_NONE_ARCHIVED
+Keine archivierten Sitzungen.\n
+MSG_SESSION_LIST_HINT
+Fortsetzen: /resume <nr>, loeschen: /sessions delete <nr>
+MSG_SESSION_DELETE_FAIL
+Loeschen fehlgeschlagen: %s
+MSG_SESSION_DELETED
+Sitzung %s geloescht.
+MSG_SESSION_DISABLED
+Sitzungen werden nicht gespeichert ([agent] session=none).
+MSG_SESSION_LOAD_FAIL
+Sitzung %s konnte nicht geladen werden.
+MSG_SESSION_NOT_FOUND
+Keine gespeicherte Sitzung gefunden.
+MSG_SESSION_LOADED_CONT
+Sitzung mit %d Nachrichten geladen - einfach weiterschreiben.
+MSG_CTX_PRUNED_AUTO
+(Kontext gekuerzt: %d alte Tool-Ergebnisse entfernt, jetzt %ld KB)
+MSG_RULES_LOADED
+Projektregeln aus %s geladen.
+MSG_CTX_TOO_SMALL
+Der Kontext von %ld Tokens ist zu klein: schon nach dem Zusammenfassen sind %ld Tokens belegt (Systemprompt, Werkzeuge, Arbeitsnotiz). Bitte in den Einstellungen mindestens 8192 eintragen.
+MSG_CTX_AUTO_COMPACT
+Kontext zu %ld%% voll (%ld von %ld Tokens) - fasse die Sitzung zusammen und arbeite weiter.
+MSG_OLLAMA_CTX
+Ollama arbeitet mit nur %ld Tokens Kontext; die Anfrage (%ld Tokens) wird gekuerzt und das Modell verliert den Anfang (Systemprompt, Werkzeuge).
+MSG_OLLAMA_CTX_FIX
+Abhilfe: auf dem Ollama-Rechner OLLAMA_CONTEXT_LENGTH=32768 setzen und Ollama neu starten, oder /compact benutzen.
+MSG_ABORTED_CTRLC
+Abgebrochen (CTRL-C)
+MSG_COST_LIMIT
+Kostenlimit erreicht: dieser Auftrag hat schon %s gekostet (Grenze $%s). Mit \"weiter\" fortsetzen oder die Grenze in den Einstellungen aendern.
+MSG_NO_MEMORY_CONV
+Kein Speicher fuer die Unterhaltung
+MSG_STEP_THINKING
+[%d] denke nach ...
+MSG_TEXT_TOOLCALL
+(Werkzeug-Aufruf im Text erkannt)
+MSG_SAME_ERROR
+(derselbe Fehler zum %d. Mal)
+MSG_TASK_ABORTED
+Auftrag vom Benutzer abgebrochen.
+MSG_LOOP_STOPPED
+Angehalten: der Agent wiederholt immer wieder dieselben fehlschlagenden Schritte. Tipp: den Fehler genauer beschreiben, dann weiter - oder ein anderes Modell waehlen.
+MSG_STEP_LIMIT
+Schrittlimit (%d) erreicht - Auftrag unvollstaendig, fortsetzbar.
+MSG_DONE_COST
+, Kosten %s
+MSG_DONE_CACHED
+(%d Schritte, Tokens: %ld ein, davon %ld aus dem Cache / %ld aus%s)
+MSG_DONE
+(%d Schritte, Tokens: %ld ein / %ld aus%s)
+MSG_COMPACT_NOTHING
+Nichts zusammenzufassen.
+MSG_COMPACT_RUNNING
+Fasse die Sitzung zusammen ...
+MSG_COMPACT_FAIL
+Zusammenfassung fehlgeschlagen: %s
+MSG_EMPTY_ANSWER
+leere Antwort
+MSG_COMPACT_DONE
+Sitzung zusammengefasst: %ld KB -> %ld KB.
+MSG_PRUNE_DONE
+%d alte Tool-Ergebnisse entfernt: %ld KB -> %ld KB.
+MSG_HELP
+/help           diese Uebersicht\n/status         Version, Modell, Modus, Projekt\n/context        Groesse der Unterhaltung\n/tokens         verbrauchte Tokens\n/model [name]   verfuegbare Modelle zeigen bzw. fuer diese Sitzung wechseln\n/compact [fokus] Unterhaltung zusammenfassen und damit weitermachen\n/prune          alte Tool-Ergebnisse entfernen\n/diff           Aenderungen dieser Sitzung zeigen\n/undo           zuletzt geaenderte Datei zuruecksetzen\n/reset          neue Sitzung beginnen (die alte wird archiviert)\n/sessions [delete <nr>]  archivierte Sitzungen zeigen bzw. loeschen\n/resume [nr]    letzte bzw. archivierte Sitzung fortsetzen\n/skills         Wissens-Skills und ihr Modus (immer/auto/aus)\n/toolchains [scan] installierte Compiler/Interpreter zeigen bzw. neu suchen\n/new <werkzeug> <verzeichnis>  neues Projekt anlegen, z. B. /new vbcc Work:Projekte/demo\n!befehl         Befehl selbst ausfuehren, Ausgabe geht mit dem naechsten Auftrag ans Modell\n!!befehl        Befehl selbst ausfuehren, Ausgabe nur fuer dich\nAusfuehrliche Anleitung: AmiCodeIDE.guide (in der IDE: HELP-Taste oder Amiga-H)
+MSG_OUTPUT_TO_MODEL
+(Die Ausgabe geht mit dem naechsten Auftrag an das Modell.)
+MSG_NEW_SESSION
+Neue Sitzung begonnen.
+MSG_TC_SEARCHING
+Suche Entwicklungswerkzeuge ...\n
+MSG_TC_FOUND
+%d Werkzeuge gefunden.
+MSG_NEW_USAGE
+Aufruf: /new <werkzeug> <verzeichnis> - /toolchains zeigt die Werkzeuge.
+MSG_CONTEXT_INFO
+Unterhaltung: %d Nachrichten (%d Tool-Ergebnisse, %d gekuerzt), %ld KB, automatisch gekuerzt ab %ld KB.
+MSG_CONTEXT_LAST
+Letzte Anfrage: %ld Tokens Kontext.
+MSG_TOKENS_INFO
+Tokens in dieser Sitzung: %ld ein (davon %ld aus dem Cache), %ld aus.
+MSG_COST_INFO
+Kosten seit dem Start: %s (vom Anbieter gemeldet).
+MSG_MODEL_SET
+Modell fuer diese Sitzung: %s (%s). Dauerhaft: Einstellungen.
+MSG_MODEL_INFO
+Anbieter: %s, Modell: %s%s
+MSG_MODEL_FOR_SESSION
+ (fuer diese Sitzung gewaehlt)
+MSG_MODELS_FETCHING
+Hole verfuegbare Modelle ...
+MSG_MODELS_FAIL
+Modellliste nicht verfuegbar: %s
+MSG_MODELS_COUNT
+%d Modelle. Wechseln mit /model <name>.
+MSG_STATUS_LINE
+AmiCode %s | %s | Modell %s | Modus %s
+MSG_STATUS_PROJECT
+Projekt: %s
+MSG_STATUS_SESSION
+Sitzung: %s, %d Nachrichten, %d geaenderte Dateien
+MSG_NOT_SAVED
+(nicht gespeichert)
+MSG_UNKNOWN_CMD
+Unbekannter Befehl /%s - /help zeigt alle Befehle.
+MSG_ASK_ALWAYS_NOTE
+%s\n(\"Immer\" gilt fuer alle weiteren %s-Aufrufe dieser Sitzung)
+MSG_ASK_NEVER
+ACHTUNG - %s\n%s\n(Diese Freigabe gilt nur fuer diesen einen Aufruf)
+MSG_WHY_SYSTEM
+Systembereich (SYS:, C:, S:, LIBS:, DEVS:, L:)
+MSG_WHY_OUTSIDE
+ausserhalb des Projektverzeichnisses
+MSG_WHY_DISKS
+Befehl veraendert Datentraeger oder Assigns
+MSG_WHY_DELETE_ALL
+rekursives Loeschen (Delete ALL)
+MSG_WHY_SYSCMD
+Befehl bezieht sich auf einen Systembereich
+MSG_BACKUP
+(Sicherung: %s)
+MSG_BACKUP_FAIL
+Sicherung von %s fehlgeschlagen
+MSG_DIFF_MORE_DEL
+- ... (%d weitere Zeilen)\n
+MSG_DIFF_MORE_ADD
++ ... (%d weitere Zeilen)\n
+MSG_DIFF_FROM_LINE
+@@ ab Zeile %d\n
+MSG_DIFF_LINE
+@@ Zeile %d\n
+MSG_DIFF_MORE
+... (weitere Aenderungen)\n
+MSG_DIFF_NONE
+(keine Aenderung)\n
+MSG_ASK_OVERWRITE
+Datei ueberschreiben: %s\n
+MSG_ASK_CREATE
+Neue Datei anlegen: %s (%ld Bytes)\n
+MSG_ASK_EDIT
+Datei aendern: %s\n
+MSG_ASK_RUN
+Befehl ausfuehren: %s\nVerzeichnis: %s
+MSG_ASK_SEARCH
+Im Internet suchen: %s
+MSG_ASK_FETCH
+Webseite laden: %s
+MSG_NO_CHANGES
+Keine Aenderungen in dieser Sitzung.
+MSG_UNDO_RESTORED
+Wiederhergestellt: %s (Stand vor der ersten Aenderung in dieser Sitzung)
+MSG_UNDO_FAIL
+Fehler: %s konnte nicht wiederhergestellt werden (Sicherung: %s)
+MSG_UNDO_DELETED
+Geloescht: %s (war in dieser Sitzung neu angelegt)
+MSG_UNDO_CANT_DELETE
+kann neu angelegte Datei nicht loeschen
+MSG_DIFF_GONE
+(Datei existiert nicht mehr)\n
+MSG_DESC_PROJECT
+(Projekt)
+MSG_NET_NO_BSD
+bsdsocket.library nicht gefunden - TCP/IP-Stack gestartet?
+MSG_NET_NO_AMISSL
+amisslmaster.library (AmiSSL 5) nicht gefunden
+MSG_NET_AMISSL_INIT
+AmiSSL konnte nicht initialisiert werden (Version zu alt?)
+MSG_NET_CERTS
+Zertifikatsspeicher nicht ladbar
+MSG_NET_DNS
+DNS: '%s' nicht aufloesbar
+MSG_NET_SOCKET
+socket() fehlgeschlagen
+MSG_NET_CONNECT
+Verbindung zu %s:%d fehlgeschlagen (errno %d)
+MSG_NET_BAD_URL
+Ungueltige URL: %s
+MSG_NET_CERT_REJECTED
+TLS: Zertifikat abgelehnt: %s%s
+MSG_NET_CHECK_CLOCK
+ - Systemuhr pruefen!
+MSG_NET_HANDSHAKE
+TLS-Handshake fehlgeschlagen
+MSG_NET_SEND
+Senden fehlgeschlagen
+MSG_NO_MEMORY_ANSWER
+Kein Speicher fuer die Antwort
+MSG_NET_BAD_HTTP
+Ungueltige HTTP-Antwort
+MSG_NET_BAD_CHUNKED
+Fehlerhafte Chunked-Antwort
+MSG_NET_REDIRECTS
+Zu viele Weiterleitungen
+MSG_NET_HEADER_BIG
+HTTP-Header zu gross
+MSG_NET_HEADER_CLOSED
+Verbindung vor Ende der Header geschlossen
+MSG_PROV_NO_BASE
+Keine Basis-URL eingetragen
+MSG_PROV_NO_MESSAGE
+(ohne Meldung)
+MSG_PROV_NO_MODELLIST
+Antwort enthaelt keine Modellliste
+MSG_PROV_NO_BASE_FOR
+Keine Basis-URL fuer %s eingetragen (Einstellungen)
+MSG_PROV_NO_KEY
+Kein API-Key fuer %s eingetragen (Einstellungen)
+MSG_PROV_NO_MODEL
+Kein Modell fuer %s gewaehlt (Einstellungen oder /model)
+MSG_PROV_EFFORT_RETRY
+(Modell verlangt reasoning_effort=none neben Werkzeugen - neuer Versuch)
+MSG_PROV_RETRY
+(Server meldet HTTP %d - neuer Versuch in %ld s)
+MSG_PROV_NO_ERRMSG
+(ohne Fehlermeldung)
+MSG_PROV_NO_JSON
+(keine JSON-Antwort)
+MSG_PROV_BAD_JSON
+Antwort ist kein gueltiges JSON
+MSG_PROV_NO_MSG
+Antwort enthaelt keine Nachricht
+MSG_WEB_SEARCH_HTTP
+Suchdienst antwortet mit HTTP %d
+MSG_WEB_ONLY_HTTP
+Nur http:// und https:// werden unterstuetzt
+MSG_WEB_NOT_TEXT
+Keine Textseite (%s, %lu Bytes)
+MSG_WEB_BINARY
+Binaerdaten (%lu Bytes)
+MSG_SHELL_NO_BREAK
+(Befehl reagiert nicht auf CTRL-C, warte weiter ...)
+MSG_SHELL_BREAK_SENT
+(CTRL-C an Befehl gesendet)
+MSG_SHELL_TIMEOUT
+(Zeitlimit von %ld s erreicht, Break gesendet)
+MSG_SKILL_OFF
+aus
+MSG_SKILL_AUTO
+auto
+MSG_SKILL_ALWAYS
+immer
+MSG_SKILLS_NONE
+Keine Skills gefunden (PROGDIR:Skills, .amicode/skills).
+MSG_SKILLS_HINT
+Modus aendern: IDE-Menue Projekt/Skills... oder [skills] name=always|auto|off in der Konfiguration.
+MSG_TC_NDK
+NDK-Header (fuer VBCC)
+MSG_TC_SAVED
+%d Werkzeuge gefunden und in %s gespeichert.\n
+MSG_TC_KNOWN
+Bekannte Entwicklungswerkzeuge (/toolchains scan sucht neu):\n
+MSG_TC_NONE
+  (keine)\n
+MSG_TC_NEW_HINT
+Neues Projekt: /new <werkzeug> <verzeichnis>, z. B. /new vbcc Work:Projekte/demo\n
+MSG_TC_CUSTOM
+Eigenes Projekt (ohne Vorgaben)
+MSG_TC_UNKNOWN
+Unbekanntes Werkzeug '%s'. /toolchains zeigt die bekannten.
+MSG_TC_NO_LIST
+Keine Werkzeugliste - /toolchains scan ausfuehren.
+MSG_TC_NOT_FOUND
+%s ist auf diesem Amiga nicht gefunden worden (/toolchains scan).
+MSG_TC_NEED_DIR
+Bitte ein Verzeichnis mit Namen angeben, z. B. Work:Projekte/demo
+MSG_TC_EXISTS
+In %s gibt es schon ein Projekt (AMICODE.md). Nichts veraendert.
+MSG_TC_MKDIR_FAIL
+Verzeichnis %s konnte nicht angelegt werden.
+MSG_TC_CREATED_CUSTOM
+Projekt %s angelegt in %s (ohne Vorgaben): AMICODE.md, .amicode/settings
+MSG_TC_CREATED
+Projekt %s angelegt in %s (%s):\n  %s.%s
+MSG_TC_RUN_WITH
+Starten mit: %s
+MSG_NP_KIND_CLI
+Shell-Programm (CLI)
+MSG_NP_KIND_WINDOW
+Fenster-Programm (Intuition/GadTools)
+MSG_NP_KIND_MUI
+MUI-Anwendung
+MSG_NP_KIND_OTHER
+Sonstiges (Bibliothek, Tool, Spiel ...)
+MSG_NP_TITLE
+AmiCodeIDE - Neues Projekt
+MSG_NP_GROUP_PROJECT
+Projekt
+MSG_NP_NAME
+Name:
+MSG_NP_LOCATION
+Wird angelegt in:
+MSG_NP_GROUP_TOOL
+Sprache / Werkzeug
+MSG_NP_GROUP_TARGET
+Programm und Zielsystem
+MSG_NP_KIND
+Programmart:
+MSG_NP_CPU
+CPU mindestens:
+MSG_NP_OS
+System mindestens:
+MSG_NP_GROUP_DESC
+Was soll das Programm tun?
+MSG_NP_GO
+Direkt loslegen: Beschreibung als ersten Auftrag an den Agenten
+MSG_NP_CREATE
+_Anlegen
+MSG_NP_CANCEL
+A_bbrechen
+MSG_NP_READING
+Lese die installierten Werkzeuge ...
+MSG_NP_HINT
+Name und Werkzeug waehlen, Aufgabe beschreiben, dann Anlegen.
+MSG_NP_ERR_NAME
+\33bBitte einen Projektnamen eingeben.
+MSG_NP_ERR_BASE
+\33bProjektordner existiert nicht.
+MSG_NP_ERR_EXISTS
+\33bEin Projekt mit diesem Namen gibt es schon.
+MSG_NP_ERR_TOOL
+\33bBitte Sprache/Werkzeug waehlen.
+MSG_NP_ERR_DESC
+\33bOhne Vorgaben braucht der Agent eine Beschreibung der Aufgabe.
+MSG_NP_FIRST_CUSTOM
+Neues Projekt \"%s\" ohne Vorgaben. Aufgabe:\n%s\nLies zuerst AMICODE.md. Waehle eine passende Sprache und ein installiertes Werkzeug, lege Quelltext und ein build-Skript an, trage build=, run= und main= in .amicode/settings ein, baue das Programm und behebe alle Fehler. Frage nach, wenn etwas an der Aufgabe unklar ist.
+MSG_NP_FIRST
+Neues Projekt \"%s\". Aufgabe:\n%s\nLies zuerst AMICODE.md. Setze die Aufgabe im vorhandenen Hauptquelltext um (das Hallo-Welt ersetzen), baue das Programm und behebe alle Fehler. Frage nach, wenn etwas an der Aufgabe unklar ist.
+MSG_PS_TITLE
+AmiCodeIDE - Projekt oeffnen
+MSG_PS_OPEN
+_Oeffnen
+MSG_PS_NEW
+_Neues Projekt...
+MSG_PS_OTHER
+_Andere Schublade...
+MSG_CANCEL_C
+Abbre_chen
+MSG_PS_LIST
+Projekte in %s:
+MSG_PS_EMPTY
+Noch keine Projekte in %s - lege eins an.
+MSG_SS_TITLE
+AmiCodeIDE - Sitzungen
+MSG_SS_LOADING
+Lade Sitzungen ...
+MSG_SS_RESUME
+_Fortsetzen
+MSG_SS_DELETE
+_Loeschen
+MSG_SS_CLOSE
+_Schliessen
+MSG_SS_CURRENT
+\33bAktuell\33n            %.*s
+MSG_SS_LIST
+Sitzungen dieses Projekts (neueste zuerst):
+MSG_SS_EMPTY
+Noch keine Sitzungen in diesem Projekt.
+MSG_SK_TITLE
+AmiCodeIDE - Skills
+MSG_SK_INFO
+Wissen, das der Agent ueber den Amiga bekommt.\n\33bImmer\33n: steht fest im Prompt (fuer lokale Modelle wie qwen).\n\33bAutomatisch\33n: das Modell holt es bei Bedarf (spart Tokens).
+MSG_SK_ALWAYS
+_Immer
+MSG_SK_AUTO
+_Automatisch
+MSG_SK_OFF
+A_us
+MSG_SAVE
+_Speichern
+MSG_SKILLW_AUTO
+automatisch
+MSG_SK_NONE
+Keine Skills gefunden (Skills neben dem Programm oder .amicode/skills im Projekt).
+MSG_GA_CD_FAIL
+CD: Verzeichnis \"%s\" nicht gefunden
+MSG_GA_NETWORK
+Netzwerk: %s
+MSG_GA_NO_NET_ABOVE
+Keine Netzwerkverbindung (siehe oben).
+MSG_GA_SESSION_LOADED
+Sitzung mit %d Nachrichten geladen.
+MSG_GA_NO_NET
+Keine Netzwerkverbindung.
+MSG_GA_MODELS_ERR
+Modelle laden: %s
+MSG_GA_MODELS_LOADED
+%d Modelle geladen.
+MSG_GA_MODE
+Modus: %s
+MSG_PR_EFFORT_DEFAULT
+Standard des Modells
+MSG_PR_EFFORT_LOW
+niedrig
+MSG_PR_EFFORT_MEDIUM
+mittel
+MSG_PR_EFFORT_HIGH
+hoch
+MSG_PR_CUSTOM
+Eigener (OpenAI-kompatibel)
+MSG_PR_HINT_OLLAMACLOUD
+Grosse Modelle auf den Servern von ollama.com. API-Key: ollama.com/settings/keys
+MSG_PR_HINT_KEY
+API-Key noetig. Kontext 0 = Grenze des Anbieters
+MSG_PR_HINT_OLLAMA
+Ollama: kein Key noetig, http://rechner:11434/v1. Kontext wird als num_ctx gesetzt (mehr braucht mehr Grafikspeicher)
+MSG_PR_HINT_CUSTOM
+Key nur, wenn der Server einen verlangt. Kontext 0 = unbegrenzt
+MSG_PR_BASE
+Basis-URL:
+MSG_PR_KEY
+API-Key:
+MSG_PR_MODEL
+Modell:
+MSG_PR_LOAD
+Modelle _laden
+MSG_PR_CONTEXT
+Kontext (Tokens):
+MSG_PR_CONTEXT_HINT
+ab 70% fasst AmiCode die Sitzung automatisch zusammen
+MSG_PR_EFFORT
+Denkaufwand:
+MSG_PR_EFFORT_HINT
+Denken kostet Ausgabe-Tokens; niedrig reicht meist
+MSG_PR_TITLE
+AmiCodeIDE - Einstellungen
+MSG_PR_PROVIDER
+Anbieter:
+MSG_PR_GROUP
+Zugang und Modell
+MSG_PR_STREAM
+Antworten streamen (live anzeigen)
+MSG_PR_MAXCOST
+Kostenlimit pro Auftrag ($):
+MSG_PR_MAXCOST_HINT
+0 = keins; nur bei Anbietern, die Kosten melden (OpenRouter)
+MSG_PR_USE
+_Verwenden
+MSG_CANCEL
+_Abbrechen
+MSG_PR_INFO
+Modell eintippen oder \"Modelle laden\" und aus der Liste waehlen.
+MSG_PR_LOADING
+Lade Modelle ...
+MSG_PR_LOADED
+%d Modelle - Doppelklick waehlt eins aus.
+MSG_SL_HELP
+alle Befehle
+MSG_SL_STATUS
+Version, Modell, Projekt
+MSG_SL_CONTEXT
+Groesse der Unterhaltung
+MSG_SL_TOKENS
+verbrauchte Tokens
+MSG_SL_MODEL
+Modell waehlen (Liste)
+MSG_SL_COMPACT
+Sitzung zusammenfassen
+MSG_SL_PRUNE
+alte Tool-Ausgaben entfernen
+MSG_SL_DIFF
+Aenderungen anzeigen
+MSG_SL_UNDO
+letzte Aenderung zuruecknehmen
+MSG_SL_RESET
+neue Sitzung
+MSG_SL_SESSIONS
+fruehere Sitzungen
+MSG_SL_RESUME
+Sitzung fortsetzen [nr]
+MSG_SL_SKILLS
+Amiga-Wissen (Skills)
+MSG_SL_NEW
+neues Projekt (Assistent)
+MSG_SL_TOOLCHAINS
+installierte Compiler zeigen
+MSG_TB_NEW
+Ne_u
+MSG_TB_NEW_HELP
+Neues Projekt anlegen (Assistent)
+MSG_TB_OPEN
+Oe_ffnen
+MSG_TB_OPEN_HELP
+Anderes Projekt oeffnen
+MSG_TB_BUILD
+_Bauen
+MSG_TB_BUILD_HELP
+Projekt bauen (Execute build, make oder [ui] build=)
+MSG_TB_RUN
+Sta_rten
+MSG_TB_RUN_HELP
+Programm starten ([ui] run=)
+MSG_TB_SAVE
+Spei_chern
+MSG_TB_SAVE_HELP
+Datei im Editor speichern
+MSG_TB_DIFF
+_Diff
+MSG_TB_DIFF_HELP
+Aenderungen des Agenten in dieser Sitzung
+MSG_TB_UNDO
+_Undo
+MSG_TB_UNDO_HELP
+Zuletzt vom Agenten geaenderte Datei zuruecksetzen
+MSG_TB_STOP
+St_op
+MSG_TB_STOP_HELP
+Laufenden Auftrag oder Befehl abbrechen
+MSG_TB_RESET
+_Neue Sitzung
+MSG_TB_RESET_HELP
+Verlauf verwerfen und neu beginnen
+MSG_MENU_PROJECT
+Projekt
+MSG_MENU_NEWPROJ
+Neues Projekt...
+MSG_MENU_OPENPROJ
+Projekt oeffnen...
+MSG_MENU_RELOAD
+Dateiliste neu laden
+MSG_MENU_SAVE
+Datei speichern
+MSG_MENU_CLOSE
+Datei schliessen
+MSG_MENU_CLEARLOG
+Build-Log leeren
+MSG_MENU_PREFS
+Einstellungen...
+MSG_MENU_SKILLS
+Skills...
+MSG_MENU_GUIDE
+Anleitung...
+MSG_MENU_ABOUT
+Ueber AmiCodeIDE...
+MSG_MENU_QUIT
+Beenden
+MSG_MENU_AGENT
+Agent
+MSG_MENU_SEND
+Auftrag senden
+MSG_MENU_STOP
+Stop
+MSG_MENU_DIFF
+Aenderungen anzeigen
+MSG_MENU_UNDO
+Letzte Aenderung zuruecknehmen
+MSG_MENU_RESET
+Neue Sitzung
+MSG_MENU_RESUME
+Letzte Sitzung fortsetzen
+MSG_MENU_SESSIONS
+Sitzungen...
+MSG_NEED_MUI
+AmiCodeIDE braucht muimaster.library (MUI 3.8 oder neuer)
+MSG_BUSY_THINKING
+\33c\33bdenke nach ...
+MSG_TOK_LINE_LIMIT
+%sKontext %s/%s (%ld%%)%s | %s ein / %s aus
+MSG_TOK_LINE
+Kontext %s | %s ein / %s aus
+MSG_TOK_CACHE
+ (%s Cache)
+MSG_ST_CANT_OPEN
+Kann '%s' nicht oeffnen
+MSG_ST_NOT_TEXT
+'%s' ist kein Textfile oder zu gross
+MSG_ST_BINARY
+'%s' ist eine Binaerdatei
+MSG_ST_BYTES
+%s (%ld Bytes)
+MSG_ST_UNSAVED
+%s (ungespeichert)
+MSG_ST_TOO_MANY
+Zu viele offene Dateien - erst eine schliessen (Amiga-W)
+MSG_REQ_DISCARD_CANCEL
+_Verwerfen|_Abbrechen
+MSG_REQ_UNSAVED_N
+\33c%ld Datei(en) mit ungespeicherten Aenderungen.\n%s
+MSG_REQ_UNSAVED_CLOSE
+\33c%s hat ungespeicherte Aenderungen.\nTrotzdem schliessen?
+MSG_ST_NO_FILE
+Keine Datei geoeffnet
+MSG_ST_SAVED
+%s gespeichert
+MSG_ST_CANT_WRITE
+Kann %s nicht schreiben
+MSG_ST_NO_LOCATION
+Keine Datei/Zeile in dieser Meldung erkannt
+MSG_ST_FILE_LINE
+%s, Zeile %ld
+MSG_AGENT_BUSY
+Der Agent arbeitet noch - Stop oder warten
+MSG_ST_CMD_RUNNING
+Befehl laeuft ...
+MSG_ST_FETCH_MODELS
+Hole Modellliste ...
+MSG_ST_AGENT_WORKING
+Agent arbeitet ...
+MSG_FINISH_TASK_FIRST
+Erst den laufenden Auftrag beenden
+MSG_REQ_DELSESS_TITLE
+AmiCodeIDE - Sitzung loeschen
+MSG_REQ_DELSESS_GADS
+_Loeschen|_Abbrechen
+MSG_REQ_DELSESS
+Sitzung %s endgueltig loeschen?
+MSG_REQ_ASK_TITLE
+AmiCodeIDE - Freigabe
+MSG_REQ_ASK_GADS
+_Erlauben|_Immer|Auftrag _stoppen|_Ablehnen
+MSG_ST_READY
+Bereit
+MSG_AGENT_START_FAIL
+\33b! Agent-Prozess konnte nicht gestartet werden\33n\n
+MSG_LOST_SWITCH
+Beim Projektwechsel gehen sie verloren.
+MSG_OUT_PROJECT
+\n\33bProjekt:\33n 
+MSG_ST_PROJECT_MISSING
+Projekt %s nicht gefunden
+MSG_ASL_PROJECT
+Schublade als Projekt oeffnen
+MSG_ST_NO_BUILD
+Kein Build gefunden: [ui] build=... in der Konfiguration setzen
+MSG_ST_NO_RUN
+Kein Startbefehl: [ui] run=... in %s setzen
+MSG_OPEN_FILES
+Offene Dateien
+MSG_BT_EXECUTE
+_Ausfuehren
+MSG_BT_SEND
+_Senden
+MSG_BT_STOP
+S_top
+MSG_PAGE_AGENT
+Agent
+MSG_PAGE_EDITOR
+Editor
+MSG_PAGE_FILES
+Dateien
+MSG_PAGE_BUILD
+Build
+MSG_LBL_PROJECT
+Projekt:
+MSG_LBL_MODE
+Modus:
+MSG_OUT_CREATING
+\n\33bNeues Projekt wird angelegt ...\33n\n
+MSG_ST_STOP_THEN_SAVE
+Erst den laufenden Auftrag beenden (Stop), dann speichern
+MSG_OUT_PREFS_SAVED
+\n\33bEinstellungen gespeichert.\33n\n
+MSG_OUT_PREFS_USED
+\n\33bEinstellungen verwendet (bis zum Neustart).\33n\n
+MSG_APP_DESCRIPTION
+Coding-Agent fuer AmigaOS
+MSG_REQ_NO_GUI
+Oberflaeche konnte nicht aufgebaut werden.\nBenoetigt: TextEditor.mcc, NList.mcc, NListview.mcc, NListtree.mcc\n(Aminet: dev/mui/MCC_TextEditor, dev/mui/MCC_NList)
+MSG_OUT_WELCOME
+\33bAmiCodeIDE %s\33n - Auftrag unten eingeben und mit Return senden.\n
+MSG_LOST_QUIT
+Beim Beenden gehen sie verloren.
+MSG_ST_STOP_SENT
+Stop gesendet
+MSG_ABOUT_TITLE
+Ueber AmiCodeIDE
+MSG_ABOUT
+\33c\33bAmiCodeIDE %s\33n\nCoding-Agent fuer AmigaOS 3.2\n\nModell: %s
+MSG_LOST_NEWPROJ
+Beim Wechsel ins neue Projekt gehen sie verloren.
+MSG_OUT_PROJECT_SWITCHED
+\n\33bProjekt gewechselt:\33n 
+MSG_ST_AGENT_NEWPROJ
+Agent arbeitet am neuen Projekt ...
+MSG_THEME_LIGHT
+Hell
+MSG_THEME_DARK
+Dunkel
+MSG_THEME_HELP
+Helle oder dunkle Farben (Einstellungen: Darstellung)
+MSG_PR_TAB_PROVIDER
+Anbieter
+MSG_PR_TAB_APPEARANCE
+Darstellung
+MSG_AP_SET
+Farben bearbeiten für:
+MSG_AP_DEFAULTS
+Standard_farben
+MSG_AP_GROUP_AREAS
+Bereiche
+MSG_AP_BG
+Hintergrund
+MSG_AP_FG
+Schrift
+MSG_AP_EDITOR
+Editor:
+MSG_AP_OUTPUT
+Agent-Ausgabe:
+MSG_AP_LOG
+Build-Log:
+MSG_AP_LIST
+Listen:
+MSG_AP_INPUT
+Eingabezeilen:
+MSG_AP_STATUS
+Statuszeile:
+MSG_AP_WINDOW
+Fenster und Beschriftungen:
+MSG_AP_GROUP_SYNTAX
+Syntaxfarben und Cursor
+MSG_AP_KEYWORD
+Schlüsselwörter:
+MSG_AP_COMMENT
+Kommentare:
+MSG_AP_STRING
+Strings:
+MSG_AP_PREPROC
+Präprozessor:
+MSG_AP_CURSOR
+Cursor:
+MSG_AP_MARK
+Markierung:
+MSG_AP_GROUP_FONTS
+Schriften (leer = MUI-Standard)
+MSG_AP_FONT_FIXED
+Festbreite (Editor, Build-Log):
+MSG_AP_FONT_TEXT
+Text (Agent, Listen, Eingabe):
+MSG_AP_HINT
+Knopfschrift, Rahmentitel und Registerreiter behalten den MUI-Stil.\nNeue Schriften für Listen und Eingabezeilen gelten nach einem Neustart von AmiCodeIDE.
+MSG_AP_BUTTON
+Knöpfe (Hintergrund):

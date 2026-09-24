@@ -9,6 +9,7 @@
 #include <exec/memory.h>
 #include <libraries/mui.h>
 #include <libraries/iffparse.h>
+#include <libraries/asl.h>
 #ifndef IPTR
 #define IPTR ULONG
 #endif
@@ -22,11 +23,13 @@
 #include "gui_prefs.h"
 #include "gui_agent.h"
 #include "provider.h"
+#include "amiloc.h"
+#include "theme.h"
 
 #define MAX_PAGES   8
 
 enum {
-    PID_SAVE = PREFS_ID_BASE, PID_USE, PID_CANCEL,
+    PID_SAVE = PREFS_ID_BASE, PID_USE, PID_CANCEL, PID_THEMESET, PID_THEMEDEF,
     PID_LOAD = PREFS_ID_BASE + 10,      /* + Seite */
     PID_PICK = PREFS_ID_BASE + 30       /* + Seite */
 };
@@ -36,19 +39,149 @@ static Object *pr_base[MAX_PAGES], *pr_key[MAX_PAGES], *pr_model[MAX_PAGES];
 static Object *pr_pop[MAX_PAGES], *pr_list[MAX_PAGES], *pr_load[MAX_PAGES], *pr_ctx[MAX_PAGES];
 static Object *pr_eff[MAX_PAGES], *maxcost_str;
 /* Denkaufwand: Anzeige und Wert in der Konfiguration ([id] effort=) */
-static const char *effort_labels[] = { "Standard des Modells", "niedrig", "mittel", "hoch", NULL };
+static const long effort_msgs[] = { MSG_PR_EFFORT_DEFAULT, MSG_PR_EFFORT_LOW, MSG_PR_EFFORT_MEDIUM, MSG_PR_EFFORT_HIGH };
+static const char *effort_labels[5];
 static const char *effort_values[] = { "default", "low", "medium", "high" };
 static Object *bt_save, *bt_use, *bt_cancel;
 static const char *cycle_labels[MAX_PAGES + 1];
 static int npages, loading_page = -1;
 
+/* Reiter Darstellung: bearbeitet eine Kopie beider Farbsaetze */
+static Object *set_cy, *bt_defaults, *pp_bg[TA_COUNT], *pp_fg[TA_COUNT], *pp_syn[TS_COUNT];
+static Object *font_fixed_str, *font_text_str;
+static ThemeSet edit[2];
+static int edit_cur;
+static const char *set_labels[3], *tab_labels[3];
+static const long area_msgs[TA_COUNT] = {
+    MSG_AP_EDITOR, MSG_AP_OUTPUT, MSG_AP_LOG, MSG_AP_LIST, MSG_AP_INPUT, MSG_AP_STATUS, MSG_AP_WINDOW,
+    MSG_AP_BUTTON
+};
+/* Poppen kennt kein "MUI-Standard": ein leerer Hintergrund wird als dieser Pen
+   gezeigt und bleibt leer, solange ihn niemand aendert */
+#define EMPTY_BG    "m2"
+static const long syn_msgs[TS_COUNT] = {
+    MSG_AP_KEYWORD, MSG_AP_COMMENT, MSG_AP_STRING, MSG_AP_PREPROC, MSG_AP_CURSOR, MSG_AP_MARK
+};
+
+static Object *font_pop(Object **str, int fixed)
+{
+    return PopaslObject,
+        MUIA_Popstring_String, *str = StringObject, StringFrame, MUIA_String_MaxLen, THEME_FONT - 1,
+                                      MUIA_CycleChain, 1, End,
+        MUIA_Popstring_Button, PopButton(MUII_PopUp),
+        MUIA_Popasl_Type, ASL_FontRequest,
+        ASLFO_FixedWidthOnly, fixed,
+    End;
+}
+
+static Object *make_appearance(void)
+{
+    Object *areas, *syn, *g;
+    int i;
+
+    set_labels[0] = GetStr(MSG_THEME_LIGHT);
+    set_labels[1] = GetStr(MSG_THEME_DARK);
+    areas = ColGroup(3), GroupFrameT(GetStr(MSG_AP_GROUP_AREAS)),
+        Child, HSpace(0),
+        Child, TextObject, MUIA_Text_PreParse, (ULONG)"\33c", MUIA_Text_Contents, (ULONG)GetStr(MSG_AP_BG), End,
+        Child, TextObject, MUIA_Text_PreParse, (ULONG)"\33c", MUIA_Text_Contents, (ULONG)GetStr(MSG_AP_FG), End,
+    End;
+    syn = ColGroup(4), GroupFrameT(GetStr(MSG_AP_GROUP_SYNTAX)), End;
+    if (!areas || !syn)
+        return NULL;
+    for (i = 0; i < TA_COUNT; i++) {
+        DoMethod(areas, OM_ADDMEMBER, (ULONG)Label1(GetStr(area_msgs[i])));
+        DoMethod(areas, OM_ADDMEMBER, (ULONG)(pp_bg[i] = PoppenObject, MUIA_CycleChain, 1, End));
+        if (i == TA_BUTTON) {       /* Knopfschrift bleibt MUI-schwarz */
+            pp_fg[i] = NULL;
+            DoMethod(areas, OM_ADDMEMBER, (ULONG)HSpace(0));
+        } else {
+            DoMethod(areas, OM_ADDMEMBER, (ULONG)(pp_fg[i] = PoppenObject, MUIA_CycleChain, 1, End));
+        }
+        if (!pp_bg[i] || (!pp_fg[i] && i != TA_BUTTON))
+            return NULL;
+    }
+    for (i = 0; i < TS_COUNT; i++) {
+        DoMethod(syn, OM_ADDMEMBER, (ULONG)Label1(GetStr(syn_msgs[i])));
+        DoMethod(syn, OM_ADDMEMBER, (ULONG)(pp_syn[i] = PoppenObject, MUIA_CycleChain, 1, End));
+        if (!pp_syn[i])
+            return NULL;
+    }
+    g = VGroup,
+        Child, HGroup,
+            Child, Label1(GetStr(MSG_AP_SET)),
+            Child, set_cy = CycleObject, MUIA_Cycle_Entries, (ULONG)set_labels, MUIA_CycleChain, 1, End,
+            Child, HSpace(0),
+            Child, bt_defaults = SimpleButton(GetStr(MSG_AP_DEFAULTS)),
+        End,
+        Child, areas,
+        Child, syn,
+        Child, ColGroup(2), GroupFrameT(GetStr(MSG_AP_GROUP_FONTS)),
+            Child, Label2(GetStr(MSG_AP_FONT_FIXED)),
+            Child, font_pop(&font_fixed_str, TRUE),
+            Child, Label2(GetStr(MSG_AP_FONT_TEXT)),
+            Child, font_pop(&font_text_str, FALSE),
+        End,
+        Child, TextObject, MUIA_Font, MUIV_Font_Tiny, MUIA_Text_Contents, (ULONG)GetStr(MSG_AP_HINT), End,
+    End;
+    return g;
+}
+
+static void set_spec(Object *pp, const char *spec)
+{
+    static struct MUI_PenSpec ps;
+
+    memset(&ps, 0, sizeof(ps));
+    strncpy(ps.buf, spec, sizeof(ps.buf) - 1);
+    set(pp, MUIA_Pendisplay_Spec, (ULONG)&ps);
+}
+
+static void get_spec(Object *pp, char *dst)
+{
+    struct MUI_PenSpec *ps = NULL;
+
+    if (!pp)
+        return;
+    get(pp, MUIA_Pendisplay_Spec, &ps);
+    if (!dst[0] && ps && strcmp(ps->buf, EMPTY_BG) == 0)
+        return;             /* leer geblieben: weiter MUI-Standard */
+    if (ps && ps->buf[0]) {
+        strncpy(dst, ps->buf, THEME_SPEC - 1);
+        dst[THEME_SPEC - 1] = 0;
+    }
+}
+
+static void appearance_show(int set)
+{
+    int i;
+
+    for (i = 0; i < TA_COUNT; i++) {
+        set_spec(pp_bg[i], edit[set].bg[i][0] ? edit[set].bg[i] : EMPTY_BG);
+        if (pp_fg[i])
+            set_spec(pp_fg[i], edit[set].fg[i]);
+    }
+    for (i = 0; i < TS_COUNT; i++)
+        set_spec(pp_syn[i], edit[set].syn[i]);
+}
+
+static void appearance_take(int set)
+{
+    int i;
+
+    for (i = 0; i < TA_COUNT; i++) {
+        get_spec(pp_bg[i], edit[set].bg[i]);
+        get_spec(pp_fg[i], edit[set].fg[i]);
+    }
+    for (i = 0; i < TS_COUNT; i++)
+        get_spec(pp_syn[i], edit[set].syn[i]);
+}
+
 static Object *make_page(int i, const ProviderDef *d)
 {
     Object *lv;
-    const char *hint = stricmp(d->id, "ollamacloud") == 0 ? "Grosse Modelle auf den Servern von ollama.com. API-Key: ollama.com/settings/keys" :
-                       d->needs_key ? "API-Key noetig. Kontext 0 = Grenze des Anbieters" :
-                       stricmp(d->id, "ollama") == 0 ? "Ollama: kein Key noetig, http://rechner:11434/v1. Kontext wird als num_ctx gesetzt (mehr braucht mehr Grafikspeicher)" :
-                       "Key nur, wenn der Server einen verlangt. Kontext 0 = unbegrenzt";
+    const char *hint = GetStr(stricmp(d->id, "ollamacloud") == 0 ? MSG_PR_HINT_OLLAMACLOUD :
+                              d->needs_key ? MSG_PR_HINT_KEY :
+                              stricmp(d->id, "ollama") == 0 ? MSG_PR_HINT_OLLAMA : MSG_PR_HINT_CUSTOM);
 
     pr_list[i] = MUI_NewObject(MUIC_NList,
                                MUIA_Frame, MUIV_Frame_InputList,
@@ -71,30 +204,30 @@ static Object *make_page(int i, const ProviderDef *d)
 
     return VGroup,
         Child, ColGroup(2),
-            Child, Label2("Basis-URL:"),
+            Child, Label2(GetStr(MSG_PR_BASE)),
             Child, pr_base[i] = StringObject, StringFrame, MUIA_String_MaxLen, 250,
                                 MUIA_CycleChain, 1, End,
-            Child, Label2("API-Key:"),
+            Child, Label2(GetStr(MSG_PR_KEY)),
             Child, pr_key[i] = StringObject, StringFrame, MUIA_String_MaxLen, 250,
                                MUIA_String_Secret, TRUE, MUIA_CycleChain, 1, End,
-            Child, Label2("Modell:"),
+            Child, Label2(GetStr(MSG_PR_MODEL)),
             Child, HGroup,
                 Child, pr_pop[i],
-                Child, pr_load[i] = MUI_MakeObject(MUIO_Button, (ULONG)"Modelle _laden"),
+                Child, pr_load[i] = MUI_MakeObject(MUIO_Button, (ULONG)GetStr(MSG_PR_LOAD)),
             End,
-            Child, Label2("Kontext (Tokens):"),
+            Child, Label2(GetStr(MSG_PR_CONTEXT)),
             Child, HGroup,
                 Child, pr_ctx[i] = StringObject, StringFrame, MUIA_String_MaxLen, 8,
                                    MUIA_String_Accept, (ULONG)"0123456789",
                                    MUIA_FixWidthTxt, (ULONG)"00000000", MUIA_CycleChain, 1, End,
-                Child, LLabel1("ab 70% fasst AmiCode die Sitzung automatisch zusammen"),
+                Child, LLabel1(GetStr(MSG_PR_CONTEXT_HINT)),
                 Child, HSpace(0),
             End,
-            Child, Label1("Denkaufwand:"),
+            Child, Label1(GetStr(MSG_PR_EFFORT)),
             Child, HGroup,
                 Child, pr_eff[i] = CycleObject, MUIA_Cycle_Entries, (ULONG)effort_labels,
                                    MUIA_CycleChain, 1, End,
-                Child, LLabel1("Denken kostet Ausgabe-Tokens; niedrig reicht meist"),
+                Child, LLabel1(GetStr(MSG_PR_EFFORT_HINT)),
                 Child, HSpace(0),
             End,
         End,
@@ -105,11 +238,17 @@ static Object *make_page(int i, const ProviderDef *d)
 Object *prefs_create(void)
 {
     const ProviderDef *defs = provider_defs_list();
-    Object *pg;
+    Object *pg, *appearance;
     int i;
 
+    for (i = 0; i < 4; i++)
+        effort_labels[i] = GetStr(effort_msgs[i]);
+    tab_labels[0] = GetStr(MSG_PR_TAB_PROVIDER);
+    tab_labels[1] = GetStr(MSG_PR_TAB_APPEARANCE);
+    if (!(appearance = make_appearance()))
+        return NULL;
     for (npages = 0; defs[npages].id && npages < MAX_PAGES; npages++)
-        cycle_labels[npages] = defs[npages].name;
+        cycle_labels[npages] = stricmp(defs[npages].id, "custom") == 0 ? GetStr(MSG_PR_CUSTOM) : defs[npages].name;
     cycle_labels[npages] = NULL;
 
     pg = MUI_NewObject(MUIC_Group, MUIA_Group_PageMode, TRUE, TAG_DONE);
@@ -124,37 +263,43 @@ Object *prefs_create(void)
     pages = pg;
 
     win = WindowObject,
-        MUIA_Window_Title, (ULONG)"AmiCodeIDE - Einstellungen",
+        MUIA_Window_Title, (ULONG)GetStr(MSG_PR_TITLE),
         MUIA_Window_ID, MAKE_ID('A','M','C','P'),
         MUIA_HelpNode, (ULONG)"PREFS",
         WindowContents, VGroup,
+          Child, RegisterGroup(tab_labels), MUIA_CycleChain, 1,
+           Child, VGroup,
             Child, HGroup,
-                Child, Label1("Anbieter:"),
+                Child, Label1(GetStr(MSG_PR_PROVIDER)),
                 Child, cycle = CycleObject, MUIA_Cycle_Entries, (ULONG)cycle_labels,
                                 MUIA_CycleChain, 1, End,
             End,
-            Child, VGroup, GroupFrameT("Zugang und Modell"),
+            Child, VGroup, GroupFrameT(GetStr(MSG_PR_GROUP)),
                 Child, pages,
             End,
             Child, HGroup,
                 Child, stream_cm = CheckMark(TRUE),
-                Child, LLabel1("Antworten streamen (live anzeigen)"),
+                Child, LLabel1(GetStr(MSG_PR_STREAM)),
                 Child, HSpace(0),
             End,
             Child, HGroup,
-                Child, Label2("Kostenlimit pro Auftrag ($):"),
+                Child, Label2(GetStr(MSG_PR_MAXCOST)),
                 Child, maxcost_str = StringObject, StringFrame, MUIA_String_MaxLen, 8,
                                      MUIA_String_Accept, (ULONG)"0123456789.",
                                      MUIA_FixWidthTxt, (ULONG)"0000000", MUIA_CycleChain, 1, End,
-                Child, LLabel1("0 = keins; nur bei Anbietern, die Kosten melden (OpenRouter)"),
+                Child, LLabel1(GetStr(MSG_PR_MAXCOST_HINT)),
                 Child, HSpace(0),
             End,
+            Child, VSpace(0),
+           End,
+           Child, appearance,
+          End,
             Child, info = TextObject, TextFrame, MUIA_Background, MUII_TextBack,
                           MUIA_Text_Contents, (ULONG)"", End,
             Child, HGroup,
-                Child, bt_save = SimpleButton("_Speichern"),
-                Child, bt_use = SimpleButton("_Verwenden"),
-                Child, bt_cancel = SimpleButton("_Abbrechen"),
+                Child, bt_save = SimpleButton(GetStr(MSG_SAVE)),
+                Child, bt_use = SimpleButton(GetStr(MSG_PR_USE)),
+                Child, bt_cancel = SimpleButton(GetStr(MSG_CANCEL)),
             End,
         End,
     End;
@@ -172,6 +317,9 @@ void prefs_notify(Object *app)
     DoMethod(bt_save, MUIM_Notify, MUIA_Pressed, FALSE, (ULONG)app, 2, MUIM_Application_ReturnID, PID_SAVE);
     DoMethod(bt_use, MUIM_Notify, MUIA_Pressed, FALSE, (ULONG)app, 2, MUIM_Application_ReturnID, PID_USE);
     DoMethod(bt_cancel, MUIM_Notify, MUIA_Pressed, FALSE, (ULONG)app, 2, MUIM_Application_ReturnID, PID_CANCEL);
+    DoMethod(set_cy, MUIM_Notify, MUIA_Cycle_Active, MUIV_EveryTime,
+             (ULONG)app, 2, MUIM_Application_ReturnID, PID_THEMESET);
+    DoMethod(bt_defaults, MUIM_Notify, MUIA_Pressed, FALSE, (ULONG)app, 2, MUIM_Application_ReturnID, PID_THEMEDEF);
     for (i = 0; i < npages; i++) {
         DoMethod(pr_load[i], MUIM_Notify, MUIA_Pressed, FALSE,
                  (ULONG)app, 2, MUIM_Application_ReturnID, PID_LOAD + i);
@@ -217,8 +365,17 @@ void prefs_open(const Config *cfg)
     }
     set(maxcost_str, MUIA_String_Contents, config_get(cfg, "agent.max_cost", "2.00"));
     set(stream_cm, MUIA_Selected, !(stricmp(st, "no") == 0 || stricmp(st, "0") == 0));
-    set(info, MUIA_Text_Contents, "Modell eintippen oder \"Modelle laden\" und aus der Liste waehlen.");
+    set(info, MUIA_Text_Contents, GetStr(MSG_PR_INFO));
+    edit[0] = theme.set[0];
+    edit[1] = theme.set[1];
+    edit_cur = theme.dark ? 1 : 0;
+    nnset(set_cy, MUIA_Cycle_Active, edit_cur);
+    appearance_show(edit_cur);
+    set(font_fixed_str, MUIA_String_Contents, theme.font_fixed);
+    set(font_text_str, MUIA_String_Contents, theme.font_text);
     set(win, MUIA_Window_Open, TRUE);
+    for (i = 0; i < npages; i++)
+        theme_list(pr_list[i], TA_LIST);
 }
 
 void prefs_close(void)
@@ -241,7 +398,7 @@ static void load_models(int page)
     snprintf(spec, sizeof(spec), "%s\n%s\n%s", defs[page].id, get_str(pr_base[page]), get_str(pr_key[page]));
     loading_page = page;
     DoMethod(pr_list[page], MUIM_NList_Clear);
-    set(info, MUIA_Text_Contents, "Lade Modelle ...");
+    set(info, MUIA_Text_Contents, GetStr(MSG_PR_LOADING));
     gui_agent_models(spec);
     memset(spec, 0, sizeof(spec));      /* Key nicht liegen lassen */
 }
@@ -269,7 +426,7 @@ void prefs_models(const char *list)
         p = e + 1;
     }
     set(pr_list[loading_page], MUIA_NList_Quiet, FALSE);
-    snprintf(line, sizeof(line), "%d Modelle - Doppelklick waehlt eins aus.", n);
+    snprintf(line, sizeof(line), GetStr(MSG_PR_LOADED), n);
     set(info, MUIA_Text_Contents, line);
     if (n)
         DoMethod(pr_pop[loading_page], MUIM_Popstring_Open);
@@ -284,6 +441,19 @@ int prefs_handle(ULONG id)
     if (id == PID_CANCEL) {
         prefs_close();
         return PREFS_CANCEL;
+    }
+    if (id == PID_THEMESET) {
+        LONG a = 0;
+        get(set_cy, MUIA_Cycle_Active, &a);
+        appearance_take(edit_cur);
+        edit_cur = a ? 1 : 0;
+        appearance_show(edit_cur);
+        return PREFS_NONE;
+    }
+    if (id == PID_THEMEDEF) {
+        theme_defaults(&edit[edit_cur], edit_cur);
+        appearance_show(edit_cur);
+        return PREFS_NONE;
     }
     if (id >= PID_LOAD && id < PID_LOAD + MAX_PAGES) {
         load_models(id - PID_LOAD);
@@ -334,4 +504,11 @@ void prefs_apply(Config *cfg)
         }
     }
     config_set(cfg, "agent.max_cost", *get_str(maxcost_str) ? get_str(maxcost_str) : "0");
+
+    appearance_take(edit_cur);
+    theme.set[0] = edit[0];
+    theme.set[1] = edit[1];
+    strncpy(theme.font_fixed, get_str(font_fixed_str), THEME_FONT - 1);
+    strncpy(theme.font_text, get_str(font_text_str), THEME_FONT - 1);
+    theme_store(cfg);
 }

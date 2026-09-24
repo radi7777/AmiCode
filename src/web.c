@@ -8,6 +8,7 @@
 
 #include "web.h"
 #include "net.h"
+#include "amiloc.h"
 
 #define SEARCH_URL      "https://lite.duckduckgo.com/lite/?q="
 #define MAX_RESULTS     8
@@ -148,7 +149,7 @@ int web_search(const char *query, StrBuf *out, char *err, int errlen)
     }
     sb_free(&url);
     if (resp.status != 200 || !resp.body) {
-        snprintf(err, errlen, "Suchdienst antwortet mit HTTP %d", resp.status);
+        snprintf(err, errlen, GetStr(MSG_WEB_SEARCH_HTTP), resp.status);
         http_response_free(&resp);
         return -1;
     }
@@ -190,7 +191,7 @@ int web_search(const char *query, StrBuf *out, char *err, int errlen)
         }
         plain_text(out, gt + 1, aend);
         sb_add(out, "\n   ");
-        sb_add(out, target.buf ? target.buf : "(ohne Adresse)");
+        sb_add(out, target.buf ? target.buf : "(no address)");
         sb_add(out, "\n");
         sb_free(&target);
 
@@ -209,7 +210,7 @@ int web_search(const char *query, StrBuf *out, char *err, int errlen)
     }
     http_response_free(&resp);
     if (n == 0)
-        sb_add(out, "(keine Treffer)");
+        sb_add(out, "(no matches)");
     return n;
 }
 
@@ -337,7 +338,7 @@ int web_fetch(const char *url, long offset, long maxlen, StrBuf *out, char *err,
     long len;
 
     if (strncmp(url, "http://", 7) != 0 && strncmp(url, "https://", 8) != 0) {
-        snprintf(err, errlen, "Nur http:// und https:// werden unterstuetzt");
+        snprintf(err, errlen, "%s", GetStr(MSG_WEB_ONLY_HTTP));
         return 0;
     }
     if (!http_fetch(url, "Accept: text/html,text/plain,application/json;q=0.9,*/*;q=0.5\r\n",
@@ -350,12 +351,12 @@ int web_fetch(const char *url, long offset, long maxlen, StrBuf *out, char *err,
     }
     if (resp.content_type[0] && !strstr(resp.content_type, "text") &&
         !strstr(resp.content_type, "json") && !strstr(resp.content_type, "xml")) {
-        snprintf(err, errlen, "Keine Textseite (%s, %lu Bytes)", resp.content_type, resp.body_len);
+        snprintf(err, errlen, GetStr(MSG_WEB_NOT_TEXT), resp.content_type, resp.body_len);
         http_response_free(&resp);
         return 0;
     }
     if (memchr(resp.body, 0, resp.body_len)) {
-        snprintf(err, errlen, "Binaerdaten (%lu Bytes)", resp.body_len);
+        snprintf(err, errlen, GetStr(MSG_WEB_BINARY), resp.body_len);
         http_response_free(&resp);
         return 0;
     }
@@ -373,7 +374,7 @@ int web_fetch(const char *url, long offset, long maxlen, StrBuf *out, char *err,
     len = text.len;
     {
         char head[700];
-        snprintf(head, sizeof(head), "Adresse: %s (%ld Zeichen Text)\n\n", final, len);
+        snprintf(head, sizeof(head), "Address: %s (%ld characters of text)\n\n", final, len);
         sb_add(out, head);
     }
     if (offset > len)
@@ -381,7 +382,7 @@ int web_fetch(const char *url, long offset, long maxlen, StrBuf *out, char *err,
     if (len - offset > maxlen) {
         char tail[100];
         sb_addn(out, body + offset, maxlen);
-        snprintf(tail, sizeof(tail), "\n[... gekuerzt; mit offset=%ld weiterlesen]", offset + maxlen);
+        snprintf(tail, sizeof(tail), "\n[... cut; continue with offset=%ld]", offset + maxlen);
         sb_add(out, tail);
     } else {
         sb_add(out, body + offset);

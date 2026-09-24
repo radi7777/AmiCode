@@ -55,7 +55,7 @@ def main(argv):
     a = Amiga(HOST, PORT, TOKEN)
 
     if files:
-        a.exec_command("MakeDir >NIL: %s" % dest_dir)
+        a.exec_command("MakeDir >NIL: %s ALL" % dest_dir)
         for f in files:
             dest = "%s/%s" % (dest_dir, os.path.basename(f))
             with open(f, "rb") as fh:

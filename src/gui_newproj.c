@@ -25,15 +25,20 @@
 
 #include "gui_newproj.h"
 #include "gui_agent.h"
+#include "amiloc.h"
+#include "theme.h"
 
 #define MAX_CHOICES 24
 
 enum { NID_CREATE = NEWPROJ_ID_BASE, NID_CANCEL };
 
-static const char *kinds[] = {
-    "Shell-Programm (CLI)", "Fenster-Programm (Intuition/GadTools)", "MUI-Anwendung",
-    "Sonstiges (Bibliothek, Tool, Spiel ...)", NULL
+/* Programmart: angezeigt in der Sprache des Katalogs, in AMICODE.md immer englisch */
+static const char *const kinds_en[] = {
+    "Shell program (CLI)", "Window program (Intuition/GadTools)", "MUI application",
+    "Other (library, tool, game ...)", NULL
 };
+static const long kind_msgs[] = { MSG_NP_KIND_CLI, MSG_NP_KIND_WINDOW, MSG_NP_KIND_MUI, MSG_NP_KIND_OTHER };
+static const char *kinds[5];
 static const char *cpus[] = { "68000", "68020", "68030", "68040", "68060", NULL };
 static const char *oses[] = { "AmigaOS 3.0/3.1", "AmigaOS 3.2", "AmigaOS 3.9", NULL };
 
@@ -47,6 +52,10 @@ static char base_dir[512];          /* Projektordner, in dem das Projekt entsteh
 Object *newproj_create(void)
 {
     Object *slider = ScrollbarObject, End;
+    int i;
+
+    for (i = 0; i < 4; i++)
+        kinds[i] = GetStr(kind_msgs[i]);
 
     tclist = MUI_NewObject(MUIC_NList,
                            MUIA_Frame, MUIV_Frame_InputList,
@@ -63,41 +72,41 @@ Object *newproj_create(void)
 
 
     win = WindowObject,
-        MUIA_Window_Title, (ULONG)"AmiCodeIDE - Neues Projekt",
+        MUIA_Window_Title, (ULONG)GetStr(MSG_NP_TITLE),
         MUIA_Window_ID, MAKE_ID('A','M','C','N'),
         MUIA_HelpNode, (ULONG)"NEWPROJECT",
         WindowContents, VGroup,
-            Child, VGroup, GroupFrameT("Projekt"),
+            Child, VGroup, GroupFrameT(GetStr(MSG_NP_GROUP_PROJECT)),
                 Child, ColGroup(2),
-                    Child, Label2("Name:"),
+                    Child, Label2(GetStr(MSG_NP_NAME)),
                     Child, name_str = StringObject, StringFrame, MUIA_String_MaxLen, 30,
                                       MUIA_String_Accept, (ULONG)"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.",
                                       MUIA_CycleChain, 1, End,
-                    Child, Label2("Wird angelegt in:"),
+                    Child, Label2(GetStr(MSG_NP_LOCATION)),
                     Child, loc_str = TextObject, TextFrame, MUIA_Background, MUII_TextBack, End,
                 End,
             End,
             Child, HGroup,
-                Child, VGroup, GroupFrameT("Sprache / Werkzeug"),
+                Child, VGroup, GroupFrameT(GetStr(MSG_NP_GROUP_TOOL)),
                     Child, MUI_NewObject(MUIC_NListview, MUIA_NListview_NList, (ULONG)tclist,
                                          MUIA_FixHeightTxt, (ULONG)"\n\n\n\n\n\n\n\n\n\n",
                                          MUIA_CycleChain, 1, TAG_DONE),
                 End,
-                Child, VGroup, GroupFrameT("Programm und Zielsystem"),
+                Child, VGroup, GroupFrameT(GetStr(MSG_NP_GROUP_TARGET)),
                     Child, ColGroup(2),
-                        Child, Label1("Programmart:"),
+                        Child, Label1(GetStr(MSG_NP_KIND)),
                         Child, kind_cy = CycleObject, MUIA_Cycle_Entries, (ULONG)kinds, MUIA_CycleChain, 1, End,
-                        Child, Label1("CPU mindestens:"),
+                        Child, Label1(GetStr(MSG_NP_CPU)),
                         Child, cpu_cy = CycleObject, MUIA_Cycle_Entries, (ULONG)cpus,
                                         MUIA_Cycle_Active, 1, MUIA_CycleChain, 1, End,
-                        Child, Label1("System mindestens:"),
+                        Child, Label1(GetStr(MSG_NP_OS)),
                         Child, os_cy = CycleObject, MUIA_Cycle_Entries, (ULONG)oses,
                                        MUIA_Cycle_Active, 1, MUIA_CycleChain, 1, End,
                     End,
                     Child, VSpace(0),
                 End,
             End,
-            Child, VGroup, GroupFrameT("Was soll das Programm tun?"),
+            Child, VGroup, GroupFrameT(GetStr(MSG_NP_GROUP_DESC)),
                 Child, HGroup, MUIA_Group_Spacing, 0,
                     MUIA_FixHeightTxt, (ULONG)"\n\n\n\n\n\n",
                     Child, desc_ed,
@@ -106,14 +115,14 @@ Object *newproj_create(void)
             End,
             Child, HGroup,
                 Child, go_cm = CheckMark(TRUE),
-                Child, LLabel1("Direkt loslegen: Beschreibung als ersten Auftrag an den Agenten"),
+                Child, LLabel1(GetStr(MSG_NP_GO)),
                 Child, HSpace(0),
             End,
             Child, info = TextObject, TextFrame, MUIA_Background, MUII_TextBack,
                           MUIA_Text_Contents, (ULONG)"", End,
             Child, HGroup,
-                Child, bt_create = SimpleButton("_Anlegen"),
-                Child, bt_cancel = SimpleButton("A_bbrechen"),
+                Child, bt_create = SimpleButton(GetStr(MSG_NP_CREATE)),
+                Child, bt_cancel = SimpleButton(GetStr(MSG_NP_CANCEL)),
             End,
         End,
     End;
@@ -142,9 +151,10 @@ void newproj_open(const char *default_dir)
     DoMethod(desc_ed, MUIM_TextEditor_ClearText);
     DoMethod(tclist, MUIM_NList_Clear);
     nchoices = 0;
-    set(info, MUIA_Text_Contents, "Lese die installierten Werkzeuge ...");
+    set(info, MUIA_Text_Contents, GetStr(MSG_NP_READING));
     gui_agent_choices();
     set(win, MUIA_Window_Open, TRUE);
+    theme_list(tclist, TA_LIST);
     set(win, MUIA_Window_ActiveObject, name_str);
 }
 
@@ -171,7 +181,7 @@ void newproj_choices(const char *list)
         p = e + 1;
     }
     set(tclist, MUIA_NList_Active, 0);
-    set(info, MUIA_Text_Contents, "Name und Werkzeug waehlen, Aufgabe beschreiben, dann Anlegen.");
+    set(info, MUIA_Text_Contents, GetStr(MSG_NP_HINT));
 }
 
 const char *newproj_spec(void)
@@ -207,12 +217,12 @@ static int collect(void)
     get(go_cm, MUIA_Selected, &go);
 
     if (!*name) {
-        set(info, MUIA_Text_Contents, "\33bBitte einen Projektnamen eingeben.");
+        set(info, MUIA_Text_Contents, GetStr(MSG_NP_ERR_NAME));
         set(win, MUIA_Window_ActiveObject, name_str);
         return 0;
     }
     if (!*loc || !(lock = Lock(loc, SHARED_LOCK))) {
-        set(info, MUIA_Text_Contents, "\33bProjektordner existiert nicht.");
+        set(info, MUIA_Text_Contents, GetStr(MSG_NP_ERR_BASE));
         return 0;
     }
     UnLock(lock);
@@ -224,13 +234,13 @@ static int collect(void)
         AddPart(test, name, sizeof(test));
         if ((lock = Lock(test, SHARED_LOCK))) {
             UnLock(lock);
-            set(info, MUIA_Text_Contents, "\33bEin Projekt mit diesem Namen gibt es schon.");
+            set(info, MUIA_Text_Contents, GetStr(MSG_NP_ERR_EXISTS));
             set(win, MUIA_Window_ActiveObject, name_str);
             return 0;
         }
     }
     if (tc < 0 || tc >= nchoices) {
-        set(info, MUIA_Text_Contents, "\33bBitte Sprache/Werkzeug waehlen.");
+        set(info, MUIA_Text_Contents, GetStr(MSG_NP_ERR_TOOL));
         return 0;
     }
     custom = strcmp(choice_id[tc], "custom") == 0;
@@ -243,29 +253,20 @@ static int collect(void)
     if (custom && go && (!desc || !*desc || !strcmp(desc, "\n"))) {
         if (desc)
             FreeVec(desc);
-        set(info, MUIA_Text_Contents, "\33bOhne Vorgaben braucht der Agent eine Beschreibung der Aufgabe.");
+        set(info, MUIA_Text_Contents, GetStr(MSG_NP_ERR_DESC));
         set(win, MUIA_Window_ActiveObject, desc_ed);
         return 0;
     }
 
     n = snprintf(spec, sizeof(spec), "%s\n%s\n%s\n%s\n%s\n%s", choice_id[tc], dir,
-                 kinds[kind], cpus[cpu], oses[os], desc ? desc : "");
+                 kinds_en[kind], cpus[cpu], oses[os], desc ? desc : "");
     (void)n;
     first[0] = 0;
     if (go && desc && *desc && strcmp(desc, "\n")) {
         if (custom)
-            snprintf(first, sizeof(first),
-                     "Neues Projekt \"%s\" ohne Vorgaben. Aufgabe:\n%s\n"
-                     "Lies zuerst AMICODE.md. Waehle eine passende Sprache und ein installiertes Werkzeug, "
-                     "lege Quelltext und ein build-Skript an, trage build=, run= und main= in "
-                     ".amicode/settings ein, baue das Programm und behebe alle Fehler. "
-                     "Frage nach, wenn etwas an der Aufgabe unklar ist.", name, desc);
+            snprintf(first, sizeof(first), GetStr(MSG_NP_FIRST_CUSTOM), name, desc);
         else
-            snprintf(first, sizeof(first),
-                     "Neues Projekt \"%s\". Aufgabe:\n%s\n"
-                     "Lies zuerst AMICODE.md. Setze die Aufgabe im vorhandenen Hauptquelltext um "
-                     "(das Hallo-Welt ersetzen), baue das Programm und behebe alle Fehler. "
-                     "Frage nach, wenn etwas an der Aufgabe unklar ist.", name, desc);
+            snprintf(first, sizeof(first), GetStr(MSG_NP_FIRST), name, desc);
     }
     if (desc)
         FreeVec(desc);

@@ -18,6 +18,8 @@
 #include <clib/alib_protos.h>
 
 #include "gui_sessions.h"
+#include "amiloc.h"
+#include "theme.h"
 
 #define MAX_SESSIONS 200
 
@@ -38,19 +40,19 @@ Object *sessions_create(void)
     if (!list)
         return NULL;
     win = WindowObject,
-        MUIA_Window_Title, (ULONG)"AmiCodeIDE - Sitzungen",
+        MUIA_Window_Title, (ULONG)GetStr(MSG_SS_TITLE),
         MUIA_Window_ID, MAKE_ID('A','M','S','S'),
         MUIA_HelpNode, (ULONG)"SESSIONS",
         WindowContents, VGroup,
-            Child, info = TextObject, MUIA_Text_Contents, (ULONG)"Lade Sitzungen ...", End,
+            Child, info = TextObject, MUIA_Text_Contents, (ULONG)GetStr(MSG_SS_LOADING), End,
             Child, MUI_NewObject(MUIC_NListview, MUIA_NListview_NList, (ULONG)list,
                                  MUIA_FixHeightTxt, (ULONG)"\n\n\n\n\n\n\n\n\n\n\n\n",
                                  MUIA_FixWidthTxt, (ULONG)"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
                                  MUIA_CycleChain, 1, TAG_DONE),
             Child, HGroup,
-                Child, bt_resume = SimpleButton("_Fortsetzen"),
-                Child, bt_delete = SimpleButton("_Loeschen"),
-                Child, bt_close = SimpleButton("_Schliessen"),
+                Child, bt_resume = SimpleButton(GetStr(MSG_SS_RESUME)),
+                Child, bt_delete = SimpleButton(GetStr(MSG_SS_DELETE)),
+                Child, bt_close = SimpleButton(GetStr(MSG_SS_CLOSE)),
             End,
         End,
     End;
@@ -73,8 +75,9 @@ int sessions_is_id(ULONG id)
 
 void sessions_open(void)
 {
-    set(info, MUIA_Text_Contents, "Lade Sitzungen ...");
+    set(info, MUIA_Text_Contents, GetStr(MSG_SS_LOADING));
     set(win, MUIA_Window_Open, TRUE);
+    theme_list(list, TA_LIST);
     set(win, MUIA_Window_ActiveObject, list);
 }
 
@@ -116,7 +119,7 @@ void sessions_fill(const char *text)
         if (len[0] > 0) {
             snprintf(names[count], sizeof(names[0]), "%.*s", len[0] > 39 ? 39 : len[0], f[0]);
             if (strcmp(names[count], "*") == 0)
-                snprintf(line, sizeof(line), "\33bAktuell\33n            %.*s", len[3], f[3]);
+                snprintf(line, sizeof(line), GetStr(MSG_SS_CURRENT), len[3], f[3]);
             else
                 snprintf(line, sizeof(line), "%.*s  %6.*s  %.*s", len[1], f[1], len[2], f[2], len[3], f[3]);
             DoMethod(list, MUIM_NList_InsertSingle, (ULONG)line, MUIV_NList_Insert_Bottom);
@@ -129,8 +132,7 @@ void sessions_fill(const char *text)
         active = 1;
     set(list, MUIA_NList_Quiet, FALSE);
     set(list, MUIA_NList_Active, count ? active : MUIV_NList_Active_Off);
-    set(info, MUIA_Text_Contents, count ? "Sitzungen dieses Projekts (neueste zuerst):"
-                                        : "Noch keine Sitzungen in diesem Projekt.");
+    set(info, MUIA_Text_Contents, GetStr(count ? MSG_SS_LIST : MSG_SS_EMPTY));
 }
 
 const char *sessions_selected(void)

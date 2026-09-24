@@ -13,6 +13,7 @@
 #include "json.h"
 #include "net.h"
 #include "ui.h"
+#include "amiloc.h"
 
 #define RETRIES     3               /* Wiederholungen bei ueberlastetem Server */
 
@@ -22,7 +23,7 @@ static const ProviderDef provider_defs[] = {
     { "openrouter", "OpenRouter",                  "https://openrouter.ai/api/v1", 1, "openai/gpt-5.4-mini" },
     { "ollama",     "Ollama",                      "http://localhost:11434/v1",  0, "" },
     { "ollamacloud", "Ollama Cloud",               "https://ollama.com/v1",      1, "gpt-oss:120b" },
-    { "custom",     "Eigener (OpenAI-kompatibel)", "",                           0, "" },
+    { "custom",     "Custom (OpenAI-compatible)", "",                           0, "" },
     { NULL }
 };
 
@@ -148,7 +149,7 @@ int provider_models(const Config *cfg, const char *id, const char *base, const c
     if (!key)
         key = ps.key;
     if (!*ps.base) {
-        snprintf(err, errlen, "Keine Basis-URL eingetragen");
+        snprintf(err, errlen, "%s", GetStr(MSG_PROV_NO_BASE));
         return -1;
     }
 
@@ -167,10 +168,10 @@ int provider_models(const Config *cfg, const char *id, const char *base, const c
     root = resp.body ? json_parse(resp.body) : NULL;
     if (resp.status != 200) {
         const char *msg = json_str(json_path(root, "error.message"));
-        snprintf(err, errlen, "HTTP %d: %s", resp.status, msg ? msg : "(ohne Meldung)");
+        snprintf(err, errlen, "HTTP %d: %s", resp.status, msg ? msg : GetStr(MSG_PROV_NO_MESSAGE));
         n = -1;
     } else if (!(data = json_get(root, "data")) || data->type != J_ARR) {
-        snprintf(err, errlen, "Antwort enthaelt keine Modellliste");
+        snprintf(err, errlen, "%s", GetStr(MSG_PROV_NO_MODELLIST));
         n = -1;
     } else {
         for (m = data->child; m; m = m->next) {
@@ -507,7 +508,7 @@ static JNode *ollama_chat(const Config *cfg, const ProviderSettings *ps, const c
     sb_add(&req, num);
     sb_add(&req, "}}");
     if (req.oom) {
-        snprintf(err, errlen, "Kein Speicher");
+        snprintf(err, errlen, "%s", GetStr(MSG_NO_MEMORY));
         sb_free(&req);
         return NULL;
     }
@@ -522,7 +523,7 @@ static JNode *ollama_chat(const Config *cfg, const ProviderSettings *ps, const c
     if (resp.status != 200) {
         JNode *e = resp.body ? json_parse(resp.body) : NULL;
         const char *m = json_str(json_get(e, "error"));
-        snprintf(err, errlen, "Ollama HTTP %d: %s", resp.status, m ? m : "(ohne Meldung)");
+        snprintf(err, errlen, "Ollama HTTP %d: %s", resp.status, m ? m : GetStr(MSG_PROV_NO_MESSAGE));
         json_free(e);
     } else {
         if (!stream && resp.body)
@@ -530,7 +531,7 @@ static JNode *ollama_chat(const Config *cfg, const ProviderSettings *ps, const c
         if (st->errmsg[0])
             snprintf(err, errlen, "Ollama: %s", st->errmsg);
         else if (!(out = stream_result(st)))
-            snprintf(err, errlen, "Kein Speicher fuer die Antwort");
+            snprintf(err, errlen, "%s", GetStr(MSG_NO_MEMORY_ANSWER));
     }
     http_response_free(&resp);
     return out;
@@ -622,15 +623,15 @@ JNode *provider_chat(const Config *cfg, const char *model, const char *messages,
     if (!model || !*model)
         model = ps.model;
     if (!*ps.base) {
-        snprintf(err, errlen, "Keine Basis-URL fuer %s eingetragen (Einstellungen)", ps.def->name);
+        snprintf(err, errlen, GetStr(MSG_PROV_NO_BASE_FOR), ps.def->name);
         return NULL;
     }
     if (ps.def->needs_key && !*key) {
-        snprintf(err, errlen, "Kein API-Key fuer %s eingetragen (Einstellungen)", ps.def->name);
+        snprintf(err, errlen, GetStr(MSG_PROV_NO_KEY), ps.def->name);
         return NULL;
     }
     if (!*model) {
-        snprintf(err, errlen, "Kein Modell fuer %s gewaehlt (Einstellungen oder /model)", ps.def->name);
+        snprintf(err, errlen, GetStr(MSG_PROV_NO_MODEL), ps.def->name);
         return NULL;
     }
     if (stricmp(ps.def->id, "ollama") == 0 &&
@@ -648,7 +649,7 @@ JNode *provider_chat(const Config *cfg, const char *model, const char *messages,
     add_headers(&hdr, &ps, key);
 
     if (req.oom || hdr.oom) {
-        snprintf(err, errlen, "Kein Speicher");
+        snprintf(err, errlen, "%s", GetStr(MSG_NO_MEMORY));
         goto out;
     }
     for (attempt = 0; ; attempt++) {
@@ -664,7 +665,7 @@ JNode *provider_chat(const Config *cfg, const char *model, const char *messages,
         if (!effort_retried && tools && resp.status == 400 && resp.body &&
             strstr(resp.body, "reasoning_effort") && strstr(resp.body, "none")) {
             effort_retried = 1;
-            ui_printf(UI_DETAIL, "(Modell verlangt reasoning_effort=none neben Werkzeugen - neuer Versuch)");
+            ui_printf(UI_DETAIL, "%s", GetStr(MSG_PROV_EFFORT_RETRY));
             http_response_free(&resp);
             stream_free(&st);
             memset(&st, 0, sizeof(st));
@@ -676,7 +677,7 @@ JNode *provider_chat(const Config *cfg, const char *model, const char *messages,
         if (attempt < RETRIES && (resp.status == 429 || resp.status == 502 ||
                                   resp.status == 503 || resp.status == 504)) {
             long wait = 10L << attempt;         /* 10, 20, 40 Sekunden */
-            ui_printf(UI_DETAIL, "(Server meldet HTTP %d - neuer Versuch in %ld s)", resp.status, wait);
+            ui_printf(UI_DETAIL, GetStr(MSG_PROV_RETRY), resp.status, wait);
             http_response_free(&resp);
             stream_free(&st);
             memset(&st, 0, sizeof(st));
@@ -688,7 +689,7 @@ JNode *provider_chat(const Config *cfg, const char *model, const char *messages,
                 Delay(50);
             }
             if (SetSignal(0, 0) & SIGBREAKF_CTRL_C) {
-                snprintf(err, errlen, "Abgebrochen (CTRL-C)");
+                snprintf(err, errlen, "%s", GetStr(MSG_ABORTED_CTRLC));
                 goto out;
             }
             continue;
@@ -704,18 +705,18 @@ JNode *provider_chat(const Config *cfg, const char *model, const char *messages,
             if (m)
                 utf8_to_latin1(m);
             snprintf(err, errlen, "HTTP %d: %s", resp.status,
-                     m ? m : (root ? "(ohne Fehlermeldung)" : "(keine JSON-Antwort)"));
+                     m ? m : (root ? GetStr(MSG_PROV_NO_ERRMSG) : GetStr(MSG_PROV_NO_JSON)));
             free(m);
         }
         json_free(root);
         root = NULL;
     } else if (stream) {
         if (!(root = stream_result(&st)))
-            snprintf(err, errlen, "Kein Speicher fuer die Antwort");
+            snprintf(err, errlen, "%s", GetStr(MSG_NO_MEMORY_ANSWER));
     } else if (!(root = json_parse(resp.body))) {
-        snprintf(err, errlen, "Antwort ist kein gueltiges JSON");
+        snprintf(err, errlen, "%s", GetStr(MSG_PROV_BAD_JSON));
     } else if (!json_path(root, RESP_MESSAGE)) {
-        snprintf(err, errlen, "Antwort enthaelt keine Nachricht");
+        snprintf(err, errlen, "%s", GetStr(MSG_PROV_NO_MSG));
         json_free(root);
         root = NULL;
     }

@@ -4,11 +4,17 @@ An AI coding agent that runs natively on the Amiga. You describe what a program
 should do; the agent writes the source, builds it with the compiler installed on
 your Amiga, reads the error messages and fixes them until it builds.
 
+![AmiCodeIDE in dark mode](docs/screenshot.png)
+
 - **AmiCodeIDE** – MUI IDE: project tree, editor with syntax highlighting,
   agent panel, build log with jump-to-error, sessions, settings.
 - **amicode** – the same agent as a Shell command.
+- Light and dark mode with a switch in the main window; colors per area,
+  syntax highlighting colors and fonts in *Settings / Appearance*.
 
-The user interface and the manual (`AmiCodeIDE.guide`) are in **German**.
+The user interface and the manual (`AmiCodeIDE.guide`) are in English. A German
+catalog and manual are included and used automatically when the Workbench Locale
+prefers German (or with `SetEnv SAVE AmiCodeLanguage deutsch`).
 
 ## Features
 
@@ -44,8 +50,8 @@ Runs on RTG and on native PAL/NTSC screens (narrow screens use a tabbed layout).
 ## Installation
 
 Unpack `AmiCodeIDE-<version>.lha` into a drawer of your choice, e.g.
-`Work:AmiCodeIDE`. The guide and the `Skills` drawer must stay next to the
-program. Start AmiCodeIDE, open *Settings* (Amiga-E), choose a provider, enter
+`Work:AmiCodeIDE`. The guide and the `Skills`, `Catalogs` and `Help` drawers
+must stay next to the program. Start AmiCodeIDE, open *Settings* (Amiga-E), choose a provider, enter
 the API key, load the model list and save. Keys are stored in
 `ENVARC:AmiCode/amicode.conf` only.
 
@@ -68,10 +74,16 @@ AmiSSL SDK installed. MUI 3.8 headers
 are vendored in `vendor/mui`.
 
 ```sh
-make                 # build/amicode, build/AmiCodeIDE, build/AmiCodeIDE.info
+make                 # build/amicode, build/AmiCodeIDE, build/AmiCodeIDE.info, catalogs
 make dist            # build/AmiCodeIDE-<version>.lha
 make TOOLCHAIN=/path/to/m68k-amigaos-gcc
 ```
+
+Texts: every user-visible string is in `catalogs/AmiCode.cd` (English, built in)
+and `catalogs/deutsch.ct`. `tools/locale.py` generates `build/locale_strings.h`
+and `build/catalogs/deutsch/AmiCode.catalog`; it refuses a translation whose
+printf placeholders differ from the original. New strings go at the end of the
+`.cd` file so existing catalogs keep their numbers.
 
 `make push` copies the binaries to a running Amiga via the amimcp protocol
 (see `push.py`; needs `AMIGA_HOST`, `AMIGA_TOKEN` and `AMIMCP_PATH`).
@@ -82,7 +94,9 @@ make TOOLCHAIN=/path/to/m68k-amigaos-gcc
 src/        agent core (agent, tools, providers, net/TLS, JSON) and MUI GUI (gui*.c)
 include/    headers
 skills/     knowledge files installed as Skills/
-docs/       AmiCodeIDE.guide (German manual)
+catalogs/   AmiCode.cd (built-in English texts) and deutsch.ct (German translation)
+docs/       AmiCodeIDE.guide (English manual), deutsch/AmiCodeIDE.guide (German)
+tools/      locale.py (builds the catalogs, replaces catcomp/FlexCat), appicon.py
 tests/      test project and AmigaDOS test scripts
 vendor/mui/ MUI 3.8 header subset
 Projekt.md  design notes and development log (German)

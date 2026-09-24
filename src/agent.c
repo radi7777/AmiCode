@@ -16,6 +16,7 @@
 #include "json.h"
 #include "provider.h"
 #include "ui.h"
+#include "amiloc.h"
 #include "toolchain.h"
 #include "skills.h"
 
@@ -30,7 +31,9 @@
 #define HISTORY_TURNS   5           /* so viele Runden zeigt /resume */
 #define DEFAULT_MAX_COST "2.00"     /* Dollar pro Auftrag (nur wenn der Anbieter Kosten meldet) */
 
-#define COMPACTED_NOTE  "[Aelteres Tool-Ergebnis entfernt, um Kontext zu sparen. Bei Bedarf erneut ausfuehren.]"
+/* Vorspann von !befehl-Ausgaben, die mit dem naechsten Auftrag ans Modell gehen */
+#define USER_RAN        "[Run by the user:"
+#define COMPACTED_NOTE  "[Older tool result removed to save context. Run it again if needed.]"
 
 #define SYSTEM_PROMPT \
     "You are AmiCode, an autonomous coding agent running natively on an Amiga " \
@@ -169,7 +172,7 @@ static void repair_tail(Agent *ag)
                 sb_init(&sb);
                 sb_add(&sb, "{\"role\":\"tool\",\"tool_call_id\":");
                 sb_add_jstr(&sb, id, 0);
-                sb_add(&sb, ",\"content\":\"Unterbrochen (AmiCode wurde beendet, bevor das Ergebnis vorlag). Zustand pruefen.\"}");
+                sb_add(&sb, ",\"content\":\"Interrupted (AmiCode was quit before the result arrived). Check the current state.\"}");
                 msg_push(ag, &sb, id);
                 sb_free(&sb);
             }
@@ -251,8 +254,10 @@ static int session_title(const char *path, char *title, int len)
                     strncpy(title, content, len - 1);
                     title[len - 1] = 0;
                     utf8_to_latin1(title);
-                    /* !befehl-Ausgaben ueberspringen: Titel ist der eigentliche Auftrag */
-                    if (strncmp(title, "[Vom Benutzer", 13) == 0 && (p = strrchr(content, '\n'))) {
+                    /* !befehl-Ausgaben ueberspringen: Titel ist der eigentliche Auftrag
+                       ("[Vom Benutzer" steht in Sitzungen vor Version 0.20) */
+                    if ((strncmp(title, USER_RAN, strlen(USER_RAN)) == 0 ||
+                         strncmp(title, "[Vom Benutzer", 13) == 0) && (p = strrchr(content, '\n'))) {
                         strncpy(title, p + 1, len - 1);
                         title[len - 1] = 0;
                         utf8_to_latin1(title);
@@ -335,7 +340,7 @@ static int session_archive(Agent *ag)
         UnLock(lock);
     }
     if (!Rename(ag->session, path)) {
-        ui_printf(UI_ERROR, "Sitzung konnte nicht archiviert werden (%s)", path);
+        ui_printf(UI_ERROR, GetStr(MSG_SESSION_ARCHIVE_FAIL), path);
         return 0;
     }
     return 1;
@@ -413,7 +418,7 @@ static int session_pick(const char *arg, char *path, int len)
     }
     free_names(v, n);
     if (!ok)
-        ui_printf(UI_ERROR, "Keine Sitzung \"%s\" - /sessions zeigt die Liste.", arg);
+        ui_printf(UI_ERROR, GetStr(MSG_SESSION_UNKNOWN), arg);
     return ok;
 }
 
@@ -428,12 +433,12 @@ void agent_list_sessions(Agent *ag, int text)
     sb_init(&out);
     sb_init(&gui);
     if (ag->session[0] && session_title(ag->session, title, 60)) {
-        outf_agent(&out, "Aktuelle Sitzung: %s\n", title);
+        outf_agent(&out, GetStr(MSG_SESSION_CURRENT), title);
         sb_add(&gui, "*\t\t\t");
         sb_add(&gui, title);
         sb_add(&gui, "\n");
     } else {
-        sb_add(&out, "Aktuelle Sitzung: (noch leer)\n");
+        sb_add(&out, GetStr(MSG_SESSION_CURRENT_EMPTY));
     }
     for (i = 0; i < n; i++) {
         BPTR lock;
@@ -457,9 +462,9 @@ void agent_list_sessions(Agent *ag, int text)
         sb_add(&gui, line);
     }
     if (!n)
-        sb_add(&out, "Keine archivierten Sitzungen.\n");
+        sb_add(&out, GetStr(MSG_SESSION_NONE_ARCHIVED));
     else
-        sb_add(&out, "Fortsetzen: /resume <nr>, loeschen: /sessions delete <nr>");
+        sb_add(&out, GetStr(MSG_SESSION_LIST_HINT));
     if (text && out.buf) {
         if (out.len && out.buf[out.len - 1] == '\n')
             out.buf[--out.len] = 0;
@@ -479,10 +484,10 @@ int agent_delete_session(Agent *ag, const char *which)
     if (!session_pick(which, path, sizeof(path)))
         return 0;
     if (!DeleteFile(path)) {
-        ui_printf(UI_ERROR, "Loeschen fehlgeschlagen: %s", path);
+        ui_printf(UI_ERROR, GetStr(MSG_SESSION_DELETE_FAIL), path);
         return 0;
     }
-    ui_printf(UI_INFO, "Sitzung %s geloescht.", FilePart(path));
+    ui_printf(UI_INFO, GetStr(MSG_SESSION_DELETED), FilePart(path));
     return 1;
 }
 
@@ -493,7 +498,7 @@ static void cmd_resume(Agent *ag, const char *arg)
     int n;
 
     if (!ag->session[0]) {
-        ui_printf(UI_ERROR, "Sitzungen werden nicht gespeichert ([agent] session=none).");
+        ui_printf(UI_ERROR, "%s", GetStr(MSG_SESSION_DISABLED));
         return;
     }
     if (*arg) {
@@ -502,17 +507,17 @@ static void cmd_resume(Agent *ag, const char *arg)
         session_archive(ag);
         DeleteFile(ag->session);    /* ohne Auftrag nicht archiviert: Rename ueberschreibt nicht */
         if (!Rename(path, ag->session)) {
-            ui_printf(UI_ERROR, "Sitzung %s konnte nicht geladen werden.", path);
+            ui_printf(UI_ERROR, GetStr(MSG_SESSION_LOAD_FAIL), path);
             return;
         }
     }
     n = agent_resume(ag);
     if (n < 0) {
-        ui_printf(UI_ERROR, "Keine gespeicherte Sitzung gefunden.");
+        ui_printf(UI_ERROR, "%s", GetStr(MSG_SESSION_NOT_FOUND));
         return;
     }
     agent_show_history(ag);
-    ui_printf(UI_INFO, "Sitzung mit %d Nachrichten geladen - einfach weiterschreiben.", n);
+    ui_printf(UI_INFO, GetStr(MSG_SESSION_LOADED_CONT), n);
     emit_tokens(ag);
 }
 
@@ -592,7 +597,7 @@ static void compact(Agent *ag)
         changed++;
     }
     if (changed) {
-        ui_printf(UI_DETAIL, "(Kontext gekuerzt: %d alte Tool-Ergebnisse entfernt, jetzt %ld KB)",
+        ui_printf(UI_DETAIL, GetStr(MSG_CTX_PRUNED_AUTO),
                   changed, ag->bytes / 1024);
         session_write(ag, 0, 0);
     }
@@ -615,7 +620,7 @@ static void add_rules(StrBuf *sys)
             buf[n] = 0;
             sb_add(sys, "\nProject rules from " PROJECT_RULES ":\n");
             sb_add(sys, buf);
-            ui_printf(UI_INFO, "Projektregeln aus " PROJECT_RULES " geladen.");
+            ui_printf(UI_INFO, GetStr(MSG_RULES_LOADED), PROJECT_RULES);
         }
         free(buf);
     }
@@ -689,12 +694,12 @@ static unsigned long hash_str(unsigned long h, const char *s)
     return h;
 }
 
-/* Fehlgeschlagen? "Fehler...", "Abgelehnt..." oder ein Befehl mit Returncode ungleich 0 */
+/* Fehlgeschlagen? "Error...", "Refused..." oder ein Befehl mit Returncode ungleich 0 */
 static int result_failed(const char *r)
 {
     if (!r)
         return 0;
-    if (strncmp(r, "Fehler", 6) == 0 || strncmp(r, "Abgelehnt", 9) == 0)
+    if (strncmp(r, "Error", 5) == 0 || strncmp(r, "Refused", 7) == 0)
         return 1;
     return strncmp(r, "Returncode: ", 12) == 0 && atol(r + 12) != 0;
 }
@@ -823,16 +828,14 @@ static void auto_compact(Agent *ag)
     if (ag->compact_base && ag->last_in - ag->compact_base < limit * AUTO_COMPACT_GROWTH / 100) {
         if (!ag->compact_small) {
             ag->compact_small = 1;
-            ui_printf(UI_ERROR, "Der Kontext von %ld Tokens ist zu klein: schon nach dem Zusammenfassen sind "
-                      "%ld Tokens belegt (Systemprompt, Werkzeuge, Arbeitsnotiz). Bitte in den Einstellungen "
-                      "mindestens 8192 eintragen.", limit, ag->compact_base);
+            ui_printf(UI_ERROR, GetStr(MSG_CTX_TOO_SMALL), limit, ag->compact_base);
         }
         return;
     }
-    ui_printf(UI_INFO, "Kontext zu %ld%% voll (%ld von %ld Tokens) - fasse die Sitzung zusammen und arbeite weiter.",
+    ui_printf(UI_INFO, GetStr(MSG_CTX_AUTO_COMPACT),
               ag->last_in * 100 / limit, ag->last_in, limit);
-    cmd_compact(ag, "Die laufende Aufgabe geht danach weiter: halte genau fest, woran gerade "
-                    "gearbeitet wird, welche Dateien betroffen sind und was als Naechstes zu tun ist.");
+    cmd_compact(ag, "The current task continues afterwards: record exactly what is being worked on, "
+                    "which files are affected and what has to be done next.");
     ag->last_in = 0;
     ag->compact_pending = 1;
     emit_tokens(ag);
@@ -1041,10 +1044,8 @@ static void check_ollama_context(Agent *ag)
         ag->ollama_ctx = provider_ollama_context(ag->cfg, model);
     if (ag->ollama_ctx > 0 && ag->last_in >= ag->ollama_ctx * 9 / 10) {
         ag->ctx_warned = 1;
-        ui_printf(UI_ERROR, "Ollama arbeitet mit nur %ld Tokens Kontext; die Anfrage (%ld Tokens) wird gekuerzt "
-                  "und das Modell verliert den Anfang (Systemprompt, Werkzeuge).", ag->ollama_ctx, ag->last_in);
-        ui_printf(UI_ERROR, "Abhilfe: auf dem Ollama-Rechner OLLAMA_CONTEXT_LENGTH=32768 setzen und Ollama neu "
-                  "starten, oder /compact benutzen.");
+        ui_printf(UI_ERROR, GetStr(MSG_OLLAMA_CTX), ag->ollama_ctx, ag->last_in);
+        ui_printf(UI_ERROR, "%s", GetStr(MSG_OLLAMA_CTX_FIX));
     }
 }
 
@@ -1082,7 +1083,7 @@ int agent_ask(Agent *ag, const char *prompt, int max_steps)
         session_write(ag, 0, 0);    /* neue Sitzung: Datei mit Systemnachricht beginnen */
     }
     if (!msg_push(ag, &sb, NULL)) {
-        ui_printf(UI_ERROR, "kein Speicher");
+        ui_printf(UI_ERROR, "%s", GetStr(MSG_NO_MEMORY));
         sb_free(&sb);
         return 0;
     }
@@ -1095,13 +1096,12 @@ int agent_ask(Agent *ag, const char *prompt, int max_steps)
         const char *content;
 
         if (SetSignal(0, SIGBREAKF_CTRL_C) & SIGBREAKF_CTRL_C) {
-            ui_printf(UI_ERROR, "Abgebrochen (CTRL-C)");
+            ui_printf(UI_ERROR, "%s", GetStr(MSG_ABORTED_CTRLC));
             break;
         }
         if (maxcost > 0 && ag->cost_micro - tcost >= maxcost) {
             fmt_cost(cbuf, sizeof(cbuf), ag->cost_micro - tcost);
-            ui_printf(UI_ERROR, "Kostenlimit erreicht: dieser Auftrag hat schon %s gekostet (Grenze $%s). "
-                      "Mit \"weiter\" fortsetzen oder die Grenze in den Einstellungen aendern.",
+            ui_printf(UI_ERROR, GetStr(MSG_COST_LIMIT),
                       cbuf, config_get(ag->cfg, "agent.max_cost", DEFAULT_MAX_COST));
             break;
         }
@@ -1109,11 +1109,11 @@ int agent_ask(Agent *ag, const char *prompt, int max_steps)
         auto_compact(ag);
         compact(ag);
         if (!build_request(ag, &req)) {
-            ui_printf(UI_ERROR, "kein Speicher fuer die Unterhaltung");
+            ui_printf(UI_ERROR, "%s", GetStr(MSG_NO_MEMORY_CONV));
             break;
         }
 
-        ui_printf(UI_STEP, "[%d] denke nach ...", step);
+        ui_printf(UI_STEP, GetStr(MSG_STEP_THINKING), step);
         ui->print(UI_BUSY, "1");
         memset(&so, 0, sizeof(so));
         root = provider_chat(ag->cfg, ag->model, req.buf, tools_json(), stream_text, &so,
@@ -1159,7 +1159,7 @@ int agent_ask(Agent *ag, const char *prompt, int max_steps)
         if (!calls && (textcalls = text_tool_calls(content, step, &textcontent))) {
             calls = textcalls;          /* als Text geschriebene Aufrufe ausfuehren */
             content = textcontent.buf ? textcontent.buf : "";
-            ui_printf(UI_DETAIL, "(Werkzeug-Aufruf im Text erkannt)");
+            ui_printf(UI_DETAIL, "%s", GetStr(MSG_TEXT_TOOLCALL));
         }
 
         if (content && *content && !so.any)
@@ -1196,21 +1196,21 @@ int agent_ask(Agent *ag, const char *prompt, int max_steps)
             }
             sb_init(&result);
             if (ag->tools->abort_turn) {
-                sb_add(&result, "Abgebrochen: der Benutzer hat den Auftrag beendet.");
+                sb_add(&result, "Aborted: the user stopped the task.");
             } else if (SetSignal(0, 0) & SIGBREAKF_CTRL_C) {
                 /* nach CTRL-C keine weiteren Tools starten, aber jedem Aufruf ein Ergebnis geben */
-                sb_add(&result, "Abgebrochen: der Benutzer hat CTRL-C gedrueckt.");
+                sb_add(&result, "Aborted: the user pressed CTRL-C.");
             } else {
                 tools_describe(name, args, desc, sizeof(desc));
                 ui->print(UI_TOOL, desc);
                 tools_run(ag->tools, name, args, &result);
-                if (result.buf && (strncmp(result.buf, "Fehler", 6) == 0 ||
-                                   strncmp(result.buf, "Abgelehnt", 9) == 0))
+                if (result.buf && (strncmp(result.buf, "Error", 5) == 0 ||
+                                   strncmp(result.buf, "Refused", 7) == 0))
                     ui_printf(UI_DETAIL, "%.200s", result.buf);
                 if (result.buf && result_failed(result.buf)) {
                     int rep = loop_check(&lg, name, result.buf);
                     if (rep > 0) {
-                        ui_printf(UI_DETAIL, "(derselbe Fehler zum %d. Mal)", rep + 1);
+                        ui_printf(UI_DETAIL, GetStr(MSG_SAME_ERROR), rep + 1);
                         sb_add(&result, "\n\n[AmiCode: This exact failure already happened in this task. "
                                         "Do NOT repeat the same action. Read the error message carefully, read the "
                                         "affected lines again with read_file (offset/limit) and change something "
@@ -1232,29 +1232,29 @@ int agent_ask(Agent *ag, const char *prompt, int max_steps)
         }
         json_free(root);
         if (ag->tools->abort_turn) {
-            ui_printf(UI_ERROR, "Auftrag vom Benutzer abgebrochen.");
+            ui_printf(UI_ERROR, "%s", GetStr(MSG_TASK_ABORTED));
             break;
         }
         if (lg.repeats >= LOOP_STOP) {
-            ui_printf(UI_ERROR, "Angehalten: der Agent wiederholt immer wieder dieselben fehlschlagenden Schritte. "
-                      "Tipp: den Fehler genauer beschreiben, dann weiter - oder ein anderes Modell waehlen.");
+            ui_printf(UI_ERROR, "%s", GetStr(MSG_LOOP_STOPPED));
             break;
         }
     }
 
     if (!done && step > max_steps)
-        ui_printf(UI_ERROR, "Schrittlimit (%d) erreicht - Auftrag unvollstaendig, fortsetzbar.",
+        ui_printf(UI_ERROR, GetStr(MSG_STEP_LIMIT),
                   max_steps);
     cbuf[0] = 0;
     if (ag->cost_micro > tcost) {
-        strcpy(cbuf, ", Kosten ");
-        fmt_cost(cbuf + 9, sizeof(cbuf) - 9, ag->cost_micro - tcost);
+        char c[24];
+        fmt_cost(c, sizeof(c), ag->cost_micro - tcost);
+        snprintf(cbuf, sizeof(cbuf), GetStr(MSG_DONE_COST), c);
     }
     if (ag->tokens_cached - tcache > 0)
-        ui_printf(UI_DONE, "(%d Schritte, Tokens: %ld ein, davon %ld aus dem Cache / %ld aus%s)",
+        ui_printf(UI_DONE, GetStr(MSG_DONE_CACHED),
                   steps_used, ag->tokens_in - tin, ag->tokens_cached - tcache, ag->tokens_out - tout, cbuf);
     else
-        ui_printf(UI_DONE, "(%d Schritte, Tokens: %ld ein / %ld aus%s)",
+        ui_printf(UI_DONE, GetStr(MSG_DONE),
                   steps_used, ag->tokens_in - tin, ag->tokens_out - tout, cbuf);
 
     json_free(textcalls);
@@ -1277,10 +1277,10 @@ static void outf_agent(StrBuf *out, const char *fmt, ...)
 }
 
 #define COMPACT_PROMPT \
-    "Fasse die bisherige Sitzung als Arbeitsnotiz fuer dich selbst zusammen, damit du " \
-    "ohne den Verlauf weiterarbeiten kannst: Ziel des Benutzers, erledigte Schritte, " \
-    "geaenderte Dateien, wichtige Fakten (Build-Befehl, Fehlermeldungen, Entscheidungen) " \
-    "und offene Punkte. Hoechstens 300 Woerter, keine Tool-Aufrufe."
+    "Summarize the session so far as a working note for yourself, so that you can " \
+    "continue without the history: the user's goal, steps done, changed files, " \
+    "important facts (build command, error messages, decisions) and open points. " \
+    "At most 300 words, no tool calls."
 
 static void print_out(StrBuf *out)
 {
@@ -1294,11 +1294,11 @@ static void cmd_compact(Agent *ag, const char *focus)
     StrBuf req, sb;
     JNode *root;
     const char *text;
-    char err[300] = "kein Speicher";
+    char err[300] = "";
     long before = ag->bytes;
 
     if (ag->count < 3) {
-        ui_printf(UI_INFO, "Nichts zusammenzufassen.");
+        ui_printf(UI_INFO, "%s", GetStr(MSG_COMPACT_NOTHING));
         return;
     }
     sb_init(&req);
@@ -1310,26 +1310,26 @@ static void cmd_compact(Agent *ag, const char *focus)
     sb_init(&sb);
     sb_add(&sb, COMPACT_PROMPT);
     if (focus && *focus) {
-        sb_add(&sb, " Besonders wichtig: ");
+        sb_add(&sb, " Pay special attention to: ");
         sb_add(&sb, focus);
     }
     sb_add_jstr(&req, sb.buf, 1);
     sb_free(&sb);
     sb_add(&req, "}]");
 
-    ui_printf(UI_STEP, "Fasse die Sitzung zusammen ...");
+    ui_printf(UI_STEP, "%s", GetStr(MSG_COMPACT_RUNNING));
     ui->print(UI_BUSY, "1");
     root = req.oom ? NULL : provider_chat(ag->cfg, ag->model, req.buf, NULL, NULL, NULL,
                                           err, sizeof(err));
     ui->print(UI_BUSY, "0");
     sb_free(&req);
     if (!root) {
-        ui_printf(UI_ERROR, "Zusammenfassung fehlgeschlagen: %s", err);
+        ui_printf(UI_ERROR, GetStr(MSG_COMPACT_FAIL), err[0] ? err : GetStr(MSG_NO_MEMORY));
         return;
     }
     text = json_str(json_path(root, RESP_MESSAGE ".content"));
     if (!text || !*text) {
-        ui_printf(UI_ERROR, "Zusammenfassung fehlgeschlagen: leere Antwort");
+        ui_printf(UI_ERROR, GetStr(MSG_COMPACT_FAIL), GetStr(MSG_EMPTY_ANSWER));
         json_free(root);
         return;
     }
@@ -1340,8 +1340,8 @@ static void cmd_compact(Agent *ag, const char *focus)
     {
         StrBuf content;
         sb_init(&content);
-        sb_add(&content, "[Zusammenfassung der bisherigen Sitzung, erzeugt mit /compact. "
-                         "Dateiinhalte vor dem Aendern erneut lesen.]\n");
+        sb_add(&content, "[Summary of the session so far, created with /compact. "
+                         "Read file contents again before changing them.]\n");
         sb_add_jstr(&sb, content.buf, 1);
         sb_free(&content);
     }
@@ -1365,7 +1365,7 @@ static void cmd_compact(Agent *ag, const char *focus)
     session_write(ag, 0, 0);
     tools_forget_reads(ag->tools);   /* Dateiinhalte stehen nicht mehr im Kontext */
 
-    ui_printf(UI_INFO, "Sitzung zusammengefasst: %ld KB -> %ld KB.", before / 1024, ag->bytes / 1024);
+    ui_printf(UI_INFO, GetStr(MSG_COMPACT_DONE), before / 1024, ag->bytes / 1024);
     print_latin1(text);
     json_free(root);
 }
@@ -1399,31 +1399,13 @@ static void cmd_prune(Agent *ag)
     }
     if (changed)
         session_write(ag, 0, 0);
-    ui_printf(UI_INFO, "%d alte Tool-Ergebnisse entfernt: %ld KB -> %ld KB.",
+    ui_printf(UI_INFO, GetStr(MSG_PRUNE_DONE),
               changed, before / 1024, ag->bytes / 1024);
 }
 
 static void cmd_help(void)
 {
-    ui->print(UI_TEXT,
-        "/help           diese Uebersicht\n"
-        "/status         Version, Modell, Modus, Projekt\n"
-        "/context        Groesse der Unterhaltung\n"
-        "/tokens         verbrauchte Tokens\n"
-        "/model [name]   verfuegbare Modelle zeigen bzw. fuer diese Sitzung wechseln\n"
-        "/compact [fokus] Unterhaltung zusammenfassen und damit weitermachen\n"
-        "/prune          alte Tool-Ergebnisse entfernen\n"
-        "/diff           Aenderungen dieser Sitzung zeigen\n"
-        "/undo           zuletzt geaenderte Datei zuruecksetzen\n"
-        "/reset          neue Sitzung beginnen (die alte wird archiviert)\n"
-        "/sessions [delete <nr>]  archivierte Sitzungen zeigen bzw. loeschen\n"
-        "/resume [nr]    letzte bzw. archivierte Sitzung fortsetzen\n"
-        "/skills         Wissens-Skills und ihr Modus (immer/auto/aus)\n"
-        "/toolchains [scan] installierte Compiler/Interpreter zeigen bzw. neu suchen\n"
-        "/new <werkzeug> <verzeichnis>  neues Projekt anlegen, z. B. /new vbcc Work:Projekte/demo\n"
-        "!befehl         Befehl selbst ausfuehren, Ausgabe geht mit dem naechsten Auftrag ans Modell\n"
-        "!!befehl        Befehl selbst ausfuehren, Ausgabe nur fuer dich\n"
-        "Ausfuehrliche Anleitung: AmiCodeIDE.guide (in der IDE: HELP-Taste oder Amiga-H)");
+    ui->print(UI_TEXT, GetStr(MSG_HELP));
 }
 
 int agent_command(Agent *ag, const char *line)
@@ -1445,17 +1427,17 @@ int agent_command(Agent *ag, const char *line)
             c++;
         if (!*c)
             return 1;
-        tools_audit(ag->tools, "Benutzer%s: %s", private ? " (privat)" : "", c);
+        tools_audit(ag->tools, "User%s: %s", private ? " (private)" : "", c);
         sb_init(&out);
         tools_exec(ag->tools, c, &out);
         print_out(&out);
         if (!private && out.buf) {
-            sb_add(&ag->pending, "[Vom Benutzer ausgefuehrt: ");
+            sb_add(&ag->pending, USER_RAN " ");
             sb_add(&ag->pending, c);
             sb_add(&ag->pending, "]\n");
             sb_add(&ag->pending, out.buf);
             sb_add(&ag->pending, "\n");
-            ui_printf(UI_INFO, "(Die Ausgabe geht mit dem naechsten Auftrag an das Modell.)");
+            ui_printf(UI_INFO, "%s", GetStr(MSG_OUTPUT_TO_MODEL));
         }
         sb_free(&out);
         return 1;
@@ -1485,7 +1467,7 @@ int agent_command(Agent *ag, const char *line)
     } else if (stricmp(cmd, "reset") == 0 || stricmp(cmd, "clear") == 0) {
         agent_reset(ag);
         sb_free(&ag->pending);
-        ui_printf(UI_INFO, "Neue Sitzung begonnen.");
+        ui_printf(UI_INFO, "%s", GetStr(MSG_NEW_SESSION));
     } else if (stricmp(cmd, "sessions") == 0) {
         if (strnicmp(arg, "delete ", 7) == 0 || strnicmp(arg, "del ", 4) == 0) {
             const char *which = strchr(arg, ' ') + 1;
@@ -1502,9 +1484,9 @@ int agent_command(Agent *ag, const char *line)
     } else if (stricmp(cmd, "toolchains") == 0) {
         if (stricmp(arg, "scan") == 0) {
             int n;
-            sb_add(&out, "Suche Entwicklungswerkzeuge ...\n");
+            sb_add(&out, GetStr(MSG_TC_SEARCHING));
             n = toolchains_scan(&out);
-            outf_agent(&out, "%d Werkzeuge gefunden.", n);
+            outf_agent(&out, GetStr(MSG_TC_FOUND), n);
         } else {
             toolchains_list(&out);
         }
@@ -1519,7 +1501,7 @@ int agent_command(Agent *ag, const char *line)
         while (*dir == ' ')
             dir++;
         if (!id[0] || !*dir) {
-            ui_printf(UI_INFO, "Aufruf: /new <werkzeug> <verzeichnis> - /toolchains zeigt die Werkzeuge.");
+            ui_printf(UI_INFO, "%s", GetStr(MSG_NEW_USAGE));
         } else if (toolchains_new_project(id, dir, &out)) {
             print_out(&out);
             ui->print(UI_PROJECT, dir);
@@ -1538,19 +1520,18 @@ int agent_command(Agent *ag, const char *line)
             if (ag->msgs[i].compacted)
                 compacted++;
         }
-        ui_printf(UI_INFO, "Unterhaltung: %d Nachrichten (%d Tool-Ergebnisse, %d gekuerzt), %ld KB, "
-                  "automatisch gekuerzt ab %ld KB.",
+        ui_printf(UI_INFO, GetStr(MSG_CONTEXT_INFO),
                   ag->count, tools, compacted, ag->bytes / 1024,
                   atol(config_get(ag->cfg, "agent.max_context", DEFAULT_CONTEXT)) / 1024);
         if (ag->last_in)
-            ui_printf(UI_INFO, "Letzte Anfrage: %ld Tokens Kontext.", ag->last_in);
+            ui_printf(UI_INFO, GetStr(MSG_CONTEXT_LAST), ag->last_in);
     } else if (stricmp(cmd, "tokens") == 0) {
-        ui_printf(UI_INFO, "Tokens in dieser Sitzung: %ld ein (davon %ld aus dem Cache), %ld aus.",
+        ui_printf(UI_INFO, GetStr(MSG_TOKENS_INFO),
                   ag->tokens_in, ag->tokens_cached, ag->tokens_out);
         if (ag->cost_micro) {
             char c[24];
             fmt_cost(c, sizeof(c), ag->cost_micro);
-            ui_printf(UI_INFO, "Kosten seit dem Start: %s (vom Anbieter gemeldet).", c);
+            ui_printf(UI_INFO, GetStr(MSG_COST_INFO), c);
         }
     } else if (stricmp(cmd, "model") == 0) {
         ProviderSettings ps;
@@ -1558,22 +1539,22 @@ int agent_command(Agent *ag, const char *line)
         if (*arg) {
             strncpy(ag->model, arg, sizeof(ag->model) - 1);
             ag->model[sizeof(ag->model) - 1] = 0;
-            ui_printf(UI_INFO, "Modell fuer diese Sitzung: %s (%s). Dauerhaft: Einstellungen.",
+            ui_printf(UI_INFO, GetStr(MSG_MODEL_SET),
                       ag->model, ps.def->name);
         } else {
             char err[200];
             int n;
-            ui_printf(UI_INFO, "Anbieter: %s, Modell: %s%s", ps.def->name,
+            ui_printf(UI_INFO, GetStr(MSG_MODEL_INFO), ps.def->name,
                       ag->model[0] ? ag->model : ps.model,
-                      ag->model[0] ? " (fuer diese Sitzung gewaehlt)" : "");
-            ui_printf(UI_INFO, "Hole verfuegbare Modelle ...");
+                      ag->model[0] ? GetStr(MSG_MODEL_FOR_SESSION) : "");
+            ui_printf(UI_INFO, "%s", GetStr(MSG_MODELS_FETCHING));
             sb_add(&out, "slash\n");
             n = provider_models(ag->cfg, NULL, NULL, NULL, &out, err, sizeof(err));
             if (n < 0) {
-                ui_printf(UI_ERROR, "Modellliste nicht verfuegbar: %s", err);
+                ui_printf(UI_ERROR, GetStr(MSG_MODELS_FAIL), err);
             } else {
                 ui->print(UI_TEXT, strchr(out.buf, '\n') + 1);
-                ui_printf(UI_INFO, "%d Modelle. Wechseln mit /model <name>.", n);
+                ui_printf(UI_INFO, GetStr(MSG_MODELS_COUNT), n);
                 ui->print(UI_MODELS, out.buf);
             }
         }
@@ -1581,17 +1562,17 @@ int agent_command(Agent *ag, const char *line)
         {
             ProviderSettings ps;
             provider_settings(ag->cfg, NULL, &ps);
-            ui_printf(UI_INFO, "AmiCode %s | %s | Modell %s | Modus %s", ag->version, ps.def->name,
+            ui_printf(UI_INFO, GetStr(MSG_STATUS_LINE), ag->version, ps.def->name,
                       ag->model[0] ? ag->model : ps.model, mode_name(ag->tools->mode));
             ui_printf(UI_INFO, "Endpoint: %s", ps.base);
         }
-        ui_printf(UI_INFO, "Projekt: %s", ag->tools->root);
-        ui_printf(UI_INFO, "Sitzung: %s, %d Nachrichten, %d geaenderte Dateien",
-                  ag->session[0] ? ag->session : "(nicht gespeichert)",
+        ui_printf(UI_INFO, GetStr(MSG_STATUS_PROJECT), ag->tools->root);
+        ui_printf(UI_INFO, GetStr(MSG_STATUS_SESSION),
+                  ag->session[0] ? ag->session : GetStr(MSG_NOT_SAVED),
                   ag->count, ag->tools->nchanges);
 
     } else {
-        ui_printf(UI_ERROR, "Unbekannter Befehl /%s - /help zeigt alle Befehle.", cmd);
+        ui_printf(UI_ERROR, GetStr(MSG_UNKNOWN_CMD), cmd);
     }
     sb_free(&out);
     return 1;

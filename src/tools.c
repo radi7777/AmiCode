@@ -28,6 +28,7 @@
 #include "tools.h"
 #include "shell.h"
 #include "ui.h"
+#include "amiloc.h"
 #include "web.h"
 
 #define MAX_READ        (256 * 1024)    /* groesste Datei, die gelesen wird */
@@ -188,7 +189,7 @@ static void dos_error(StrBuf *out, const char *what, const char *path)
     char msg[100];
 
     Fault(IoErr(), NULL, msg, sizeof(msg));
-    outf(out, "Fehler: %s '%s': %s", what, path, msg);
+    outf(out, "Error: %s '%s': %s", what, path, msg);
 }
 
 /* Verzeichnis anlegen, falls noetig. CreateDir liefert einen exklusiven Lock! */
@@ -376,12 +377,12 @@ static int ask(ToolCtx *ctx, int tool, const char *what)
 
     if (ctx->always[tool])
         return 1;
-    snprintf(question, sizeof(question), "%s\n(\"Immer\" gilt fuer alle weiteren %s-Aufrufe dieser Sitzung)",
+    snprintf(question, sizeof(question), GetStr(MSG_ASK_ALWAYS_NOTE),
              what, tool_names[tool]);
     answer = ui_ask(question);
-    tools_audit(ctx, "  Freigabe %s: %s", tool_names[tool],
-                answer == ASK_YES ? "erlaubt" : answer == ASK_ALWAYS ? "immer erlaubt" :
-                answer == ASK_ABORT ? "Auftrag abgebrochen" : "abgelehnt");
+    tools_audit(ctx, "  approval %s: %s", tool_names[tool],
+                answer == ASK_YES ? "allowed" : answer == ASK_ALWAYS ? "always allowed" :
+                answer == ASK_ABORT ? "task aborted" : "refused");
     if (answer == ASK_ABORT) {
         ctx->abort_turn = 1;
         return 0;
@@ -399,12 +400,12 @@ static int ask_never(ToolCtx *ctx, const char *why, const char *what)
     char question[4400];
     int answer;
 
-    snprintf(question, sizeof(question), "ACHTUNG - %s\n%s\n(Diese Freigabe gilt nur fuer diesen einen Aufruf)",
+    snprintf(question, sizeof(question), GetStr(MSG_ASK_NEVER),
              why, what);
     answer = ui_ask(question);
-    tools_audit(ctx, "  Tabu-Liste (%s): %s", why,
-                answer == ASK_YES || answer == ASK_ALWAYS ? "einmal erlaubt" :
-                answer == ASK_ABORT ? "Auftrag abgebrochen" : "abgelehnt");
+    tools_audit(ctx, "  never list (%s): %s", why,
+                answer == ASK_YES || answer == ASK_ALWAYS ? "allowed once" :
+                answer == ASK_ABORT ? "task aborted" : "refused");
     if (answer == ASK_ABORT)
         ctx->abort_turn = 1;
     return answer == ASK_YES || answer == ASK_ALWAYS;
@@ -423,12 +424,12 @@ static int allow_write(ToolCtx *ctx, int tool, const char *path, const char *wha
     UnLock(lock);
 
     if (prot)
-        return ask_never(ctx, "Systembereich (SYS:, C:, S:, LIBS:, DEVS:, L:)", what);
+        return ask_never(ctx, GetStr(MSG_WHY_SYSTEM), what);
     if (!inside)
-        return ask_never(ctx, "ausserhalb des Projektverzeichnisses", what);
+        return ask_never(ctx, GetStr(MSG_WHY_OUTSIDE), what);
     if (ctx->mode == MODE_SAFE)
         return ask(ctx, tool, what);
-    tools_audit(ctx, "  Freigabe %s: automatisch (Modus %s)", tool_names[tool], mode_name(ctx->mode));
+    tools_audit(ctx, "  approval %s: automatic (mode %s)", tool_names[tool], mode_name(ctx->mode));
     return 1;
 }
 
@@ -443,12 +444,12 @@ static char *load_file(const char *path, long *size, StrBuf *out)
     struct FileInfoBlock *fib;
 
     if (!(lock = Lock(path, SHARED_LOCK))) {
-        dos_error(out, "kann nicht oeffnen", path);
+        dos_error(out, "cannot open", path);
         return NULL;
     }
     if (!(fib = AllocDosObject(DOS_FIB, NULL))) {
         UnLock(lock);
-        sb_add(out, "Fehler: kein Speicher");
+        sb_add(out, "Error: out of memory");
         return NULL;
     }
     Examine(lock, fib);
@@ -456,29 +457,29 @@ static char *load_file(const char *path, long *size, StrBuf *out)
     if (fib->fib_DirEntryType > 0) {
         FreeDosObject(DOS_FIB, fib);
         UnLock(lock);
-        outf(out, "Fehler: '%s' ist ein Verzeichnis", path);
+        outf(out, "Error: '%s' is a directory", path);
         return NULL;
     }
     FreeDosObject(DOS_FIB, fib);
     UnLock(lock);
 
     if (n > MAX_READ) {
-        outf(out, "Fehler: '%s' ist zu gross (%ld Bytes, Grenze %d)", path, n, MAX_READ);
+        outf(out, "Error: '%s' is too large (%ld bytes, limit %d)", path, n, MAX_READ);
         return NULL;
     }
     if (!(buf = malloc(n + 1))) {
-        sb_add(out, "Fehler: kein Speicher");
+        sb_add(out, "Error: out of memory");
         return NULL;
     }
     if (!(fh = Open(path, MODE_OLDFILE))) {
         free(buf);
-        dos_error(out, "kann nicht oeffnen", path);
+        dos_error(out, "cannot open", path);
         return NULL;
     }
     if (Read(fh, buf, n) != n) {
         Close(fh);
         free(buf);
-        dos_error(out, "Lesefehler", path);
+        dos_error(out, "read error", path);
         return NULL;
     }
     Close(fh);
@@ -501,12 +502,12 @@ static int save_file(const char *path, const char *data, long n, StrBuf *out)
     BPTR fh = Open(path, MODE_NEWFILE);
 
     if (!fh) {
-        dos_error(out, "kann nicht schreiben", path);
+        dos_error(out, "cannot write", path);
         return 0;
     }
     if (Write(fh, data, n) != n) {
         Close(fh);
-        dos_error(out, "Schreibfehler", path);
+        dos_error(out, "write error", path);
         return 0;
     }
     Close(fh);
@@ -627,11 +628,11 @@ static int check_fresh(ToolCtx *ctx, const char *path, StrBuf *out)
     if (!file_stamp(path, full, sizeof(full), &size, &date))
         return 1;   /* neue Datei */
     if (!(r = find_read(ctx, full))) {
-        outf(out, "Fehler: %s wurde in dieser Sitzung noch nicht gelesen. Zuerst read_file aufrufen.", path);
+        outf(out, "Error: %s has not been read in this session yet. Call read_file first.", path);
         return 0;
     }
     if (r->size != size || CompareDates(&r->date, &date) != 0) {
-        outf(out, "Fehler: %s wurde seit dem Lesen veraendert (z. B. im Editor). Datei erneut lesen.", path);
+        outf(out, "Error: %s has changed since it was read (e.g. in the editor). Read the file again.", path);
         return 0;
     }
     return 1;
@@ -682,9 +683,9 @@ static void backup(ToolCtx *ctx, const char *path)
         snprintf(dest, sizeof(dest), STATE_DIR "/backups/%s/%s", ctx->session_id, name);
         if (copy_file(path, dest)) {
             c->backup = strdup(dest);
-            ui_printf(UI_DETAIL, "(Sicherung: %s)", dest);
+            ui_printf(UI_DETAIL, GetStr(MSG_BACKUP), dest);
         } else {
-            ui_printf(UI_ERROR, "Sicherung von %s fehlgeschlagen", full);
+            ui_printf(UI_ERROR, GetStr(MSG_BACKUP_FAIL), full);
         }
     }
 
@@ -692,7 +693,7 @@ static void backup(ToolCtx *ctx, const char *path)
     snprintf(dest, sizeof(dest), STATE_DIR "/backups/%s/journal", ctx->session_id);
     if ((fh = Open(dest, MODE_READWRITE))) {
         Seek(fh, 0, OFFSET_END);
-        snprintf(line, sizeof(line), "%s\t%s\n", full, c->backup ? c->backup : "(neu angelegt)");
+        snprintf(line, sizeof(line), "%s\t%s\n", full, c->backup ? c->backup : "(newly created)");
         Write(fh, line, strlen(line));
         Close(fh);
     }
@@ -752,17 +753,17 @@ static void diff_block(const Lines *la, const Lines *lb, int pre, int suf, StrBu
 {
     int i;
 
-    outf(out, "@@ ab Zeile %d\n", pre + 1);
+    outf(out, GetStr(MSG_DIFF_FROM_LINE), pre + 1);
     for (i = pre; i < la->n - suf; i++) {
         if (i - pre >= maxlines) {
-            outf(out, "- ... (%d weitere Zeilen)\n", la->n - suf - i);
+            outf(out, GetStr(MSG_DIFF_MORE_DEL), la->n - suf - i);
             break;
         }
         diff_line(out, '-', la, i);
     }
     for (i = pre; i < lb->n - suf; i++) {
         if (i - pre >= maxlines) {
-            outf(out, "+ ... (%d weitere Zeilen)\n", lb->n - suf - i);
+            outf(out, GetStr(MSG_DIFF_MORE_ADD), lb->n - suf - i);
             break;
         }
         diff_line(out, '+', lb, i);
@@ -799,7 +800,7 @@ static void diff_lcs(const Lines *la, const Lines *lb, int pre, int suf, StrBuf 
             continue;
         }
         if (!in_hunk) {
-            outf(out, "@@ Zeile %d\n", pre + j + 1);
+            outf(out, GetStr(MSG_DIFF_LINE), pre + j + 1);
             in_hunk = 1;
         }
         if (j < m && (i == n || T(i, j + 1) > T(i + 1, j))) {    /* bei Gleichstand erst "-" */
@@ -812,7 +813,7 @@ static void diff_lcs(const Lines *la, const Lines *lb, int pre, int suf, StrBuf 
         shown++;
     }
     if (i < n || j < m)
-        sb_add(out, "... (weitere Aenderungen)\n");
+        sb_add(out, GetStr(MSG_DIFF_MORE));
 #undef T
     free(t);
 }
@@ -839,7 +840,7 @@ static void block_diff(const char *a, const char *b, StrBuf *out, int maxlines)
 
     cells = (long)(la.n - pre - suf + 1) * (lb.n - pre - suf + 1);
     if (pre == la.n && pre == lb.n)
-        sb_add(out, "(keine Aenderung)\n");
+        sb_add(out, GetStr(MSG_DIFF_NONE));
     else if (la.n - pre - suf == 0 || lb.n - pre - suf == 0 || cells > LCS_MAX_CELLS)
         diff_block(&la, &lb, pre, suf, out, maxlines);
     else
@@ -861,7 +862,7 @@ static void t_read(ToolCtx *ctx, const JNode *args, StrBuf *out)
     long n, lineno = 0, shown = 0;
 
     if (!path) {
-        sb_add(out, "Fehler: path fehlt");
+        sb_add(out, "Error: path is missing");
         return;
     }
     if (offset < 1)
@@ -873,9 +874,9 @@ static void t_read(ToolCtx *ctx, const JNode *args, StrBuf *out)
         return;
     }
     if (is_binary(buf, n)) {
-        outf(out, "Fehler: '%s' ist eine Binaerdatei (%ld Bytes)", path, n);
+        outf(out, "Error: '%s' is a binary file (%ld bytes)", path, n);
     } else if (n == 0) {
-        sb_add(out, "(leere Datei)");
+        sb_add(out, "(empty file)");
         remember_read(ctx, path);
     } else {
         p = buf;
@@ -885,7 +886,7 @@ static void t_read(ToolCtx *ctx, const JNode *args, StrBuf *out)
             lineno++;
             if (lineno >= offset && shown < limit) {
                 if (out->len > MAX_RESULT) {
-                    outf(out, "[... gekuerzt bei Zeile %ld; mit offset weiterlesen]", lineno);
+                    outf(out, "[... cut at line %ld; continue with offset]", lineno);
                     shown = limit;
                 } else {
                     outf(out, "%6ld\t", lineno);
@@ -899,7 +900,7 @@ static void t_read(ToolCtx *ctx, const JNode *args, StrBuf *out)
             p = e + 1;
         }
         if (lineno >= offset + shown && shown >= limit)
-            outf(out, "[... Datei hat %ld Zeilen; mit offset=%ld weiterlesen]", lineno, offset + shown);
+            outf(out, "[... file has %ld lines; continue with offset=%ld]", lineno, offset + shown);
         remember_read(ctx, path);
     }
     free(buf);
@@ -915,7 +916,7 @@ static void t_list(ToolCtx *ctx, const JNode *args, StrBuf *out)
     int count = 0;
 
     if (!(lock = Lock(p, SHARED_LOCK))) {
-        dos_error(out, "Verzeichnis nicht gefunden", p);
+        dos_error(out, "directory not found", p);
         free(path);
         return;
     }
@@ -926,7 +927,7 @@ static void t_list(ToolCtx *ctx, const JNode *args, StrBuf *out)
                     stricmp(fib->fib_FileName, "amicode.session") == 0)
                     continue;   /* interne Dateien: nur Tokens, kein Nutzen fuer das Modell */
                 if (++count > MAX_LIST) {
-                    sb_add(out, "[... weitere Eintraege]\n");
+                    sb_add(out, "[... more entries]\n");
                     break;
                 }
                 if (fib->fib_DirEntryType > 0)
@@ -935,9 +936,9 @@ static void t_list(ToolCtx *ctx, const JNode *args, StrBuf *out)
                     outf(out, "%s  %ld\n", fib->fib_FileName, fib->fib_Size);
             }
             if (count == 0)
-                sb_add(out, "(leer)");
+                sb_add(out, "(empty)");
         } else {
-            outf(out, "Fehler: '%s' ist kein Verzeichnis", p);
+            outf(out, "Error: '%s' is not a directory", p);
         }
         FreeDosObject(DOS_FIB, fib);
     }
@@ -990,7 +991,7 @@ static void search_file(Walk *w, const char *path)
         for (p = line; *p; p++) {
             if (strnicmp(p, w->text, w->textlen) == 0) {
                 if (++file_hits > HITS_PER_FILE) {
-                    outf(w->out, "%s: [weitere Treffer in dieser Datei]\n", path);
+                    outf(w->out, "%s: [more matches in this file]\n", path);
                     free(buf);
                     return;
                 }
@@ -1071,7 +1072,7 @@ static int prepare_pattern(Walk *w, const char *pat, StrBuf *out)
     }
     apat[j] = 0;
     if (ParsePatternNoCase(apat, w->pattern, sizeof(w->pattern)) < 0) {
-        outf(out, "Fehler: ungueltiges Muster '%s'", pat);
+        outf(out, "Error: invalid pattern '%s'", pat);
         return 0;
     }
     w->use_pattern = 1;
@@ -1089,13 +1090,13 @@ static void t_find(ToolCtx *ctx, const JNode *args, StrBuf *out)
     w.start = out->len;
     w.max_hits = MAX_FOUND;
     if (!pat || !*pat)
-        sb_add(out, "Fehler: pattern fehlt");
+        sb_add(out, "Error: pattern is missing");
     else if (prepare_pattern(&w, pat, out)) {
         walk_dir(&w, path ? path : "", 0);
         if (w.hits == 0)
-            sb_add(out, "(keine Dateien gefunden)");
+            sb_add(out, "(no files found)");
         else if (w.full)
-            sb_add(out, "[... Trefferlimit erreicht - Pfad oder Muster genauer angeben]");
+            sb_add(out, "[... match limit reached - give a more specific path or pattern]");
     }
     free(pat);
     free(path);
@@ -1113,15 +1114,15 @@ static void t_search(ToolCtx *ctx, const JNode *args, StrBuf *out)
     w.start = out->len;
     w.max_hits = MAX_HITS;
     if (!text || !*text) {
-        sb_add(out, "Fehler: text fehlt");
+        sb_add(out, "Error: text is missing");
     } else if (prepare_pattern(&w, pat, out)) {
         w.text = text;
         w.textlen = strlen(text);
         walk_dir(&w, path ? path : "", 0);
         if (w.hits == 0)
-            sb_add(out, "(keine Treffer)");
+            sb_add(out, "(no matches)");
         else if (w.full)
-            sb_add(out, "[... Trefferlimit erreicht - Suchtext, Pfad oder file_pattern genauer angeben]");
+            sb_add(out, "[... match limit reached - give a more specific text, path or file_pattern]");
     }
     free(text);
     free(path);
@@ -1139,7 +1140,7 @@ static void t_write(ToolCtx *ctx, const JNode *args, StrBuf *out)
 
     sb_init(&what);
     if (!path || !content) {
-        sb_add(out, "Fehler: path und content werden benoetigt");
+        sb_add(out, "Error: path and content are required");
         goto done;
     }
     if (!check_fresh(ctx, path, out))
@@ -1154,22 +1155,22 @@ static void t_write(ToolCtx *ctx, const JNode *args, StrBuf *out)
         sb_free(&dummy);
     }
     if (old) {
-        outf(&what, "Datei ueberschreiben: %s\n", full);
+        outf(&what, GetStr(MSG_ASK_OVERWRITE), full);
         block_diff(old, content, &what, DIFF_LINES);
     } else {
-        outf(&what, "Neue Datei anlegen: %s (%ld Bytes)\n", full, (long)strlen(content));
+        outf(&what, GetStr(MSG_ASK_CREATE), full, (long)strlen(content));
         block_diff("", content, &what, DIFF_LINES);
     }
-    tools_audit(ctx, "write_file %s (%ld Bytes)", full, (long)strlen(content));
+    tools_audit(ctx, "write_file %s (%ld bytes)", full, (long)strlen(content));
     if (!allow_write(ctx, TOOL_WRITE, path, what.buf ? what.buf : full)) {
-        sb_add(out, "Abgelehnt: der Benutzer hat das Schreiben nicht erlaubt. Nicht unveraendert wiederholen.");
+        sb_add(out, "Refused: the user did not allow the write. Do not repeat it unchanged.");
         goto done;
     }
     backup(ctx, path);
     if (save_file(path, content, strlen(content), out)) {
         remember_read(ctx, path);
-        outf(out, "OK: %ld Bytes nach %s geschrieben", (long)strlen(content), path);
-        tools_audit(ctx, "  -> geschrieben");
+        outf(out, "OK: %ld bytes written to %s", (long)strlen(content), path);
+        tools_audit(ctx, "  -> written");
     }
 done:
     sb_free(&what);
@@ -1206,11 +1207,11 @@ static void t_edit(ToolCtx *ctx, const JNode *args, StrBuf *out)
     sb_init(&res);
     sb_init(&what);
     if (!path || !olds || !news || !*olds) {
-        sb_add(out, "Fehler: path, old_string (nicht leer) und new_string werden benoetigt");
+        sb_add(out, "Error: path, old_string (not empty) and new_string are required");
         goto done;
     }
     if (strcmp(olds, news) == 0) {
-        sb_add(out, "Fehler: old_string und new_string sind gleich");
+        sb_add(out, "Error: old_string and new_string are identical");
         goto done;
     }
     if (!check_fresh(ctx, path, out))
@@ -1226,11 +1227,11 @@ static void t_edit(ToolCtx *ctx, const JNode *args, StrBuf *out)
         count++;
     }
     if (count == 0) {
-        outf(out, "Fehler: old_string kommt in %s nicht vor. Datei erneut lesen und exakt uebernehmen (ohne Zeilennummern).", path);
+        outf(out, "Error: old_string does not occur in %s. Read the file again and copy it exactly (without line numbers).", path);
         goto done;
     }
     if (count > 1) {
-        outf(out, "Fehler: old_string kommt %ld-mal in %s vor. Mehr umgebende Zeilen angeben.", count, path);
+        outf(out, "Error: old_string occurs %ld times in %s. Include more surrounding lines.", count, path);
         goto done;
     }
 
@@ -1238,25 +1239,25 @@ static void t_edit(ToolCtx *ctx, const JNode *args, StrBuf *out)
     sb_addn(&res, news, nlen);
     sb_add(&res, hit + olen);
     if (res.oom) {
-        sb_add(out, "Fehler: kein Speicher");
+        sb_add(out, "Error: out of memory");
         goto done;
     }
 
     resolve(path, full, sizeof(full));
-    outf(&what, "Datei aendern: %s\n", full);
+    outf(&what, GetStr(MSG_ASK_EDIT), full);
     block_diff(buf, res.buf, &what, DIFF_LINES);
     tools_audit(ctx, "edit_file %s", full);
     if (ctx->mode != MODE_SAFE && what.buf)
         show_lines(what.buf);   /* ohne Rueckfrage trotzdem zeigen, was passiert */
     if (!allow_write(ctx, TOOL_EDIT, path, what.buf ? what.buf : full)) {
-        sb_add(out, "Abgelehnt: der Benutzer hat die Aenderung nicht erlaubt. Nicht unveraendert wiederholen.");
+        sb_add(out, "Refused: the user did not allow the change. Do not repeat it unchanged.");
         goto done;
     }
     backup(ctx, path);
     if (save_file(path, res.buf, res.len, out)) {
         remember_read(ctx, path);
-        outf(out, "OK: %s geaendert", path);
-        tools_audit(ctx, "  -> geaendert");
+        outf(out, "OK: %s changed", path);
+        tools_audit(ctx, "  -> changed");
     }
 done:
     sb_free(&res);
@@ -1310,12 +1311,12 @@ static const char *command_never(const char *cmd)
     command_name(cmd, name, sizeof(name));
     for (i = 0; never_commands[i]; i++)
         if (stricmp(name, never_commands[i]) == 0)
-            return "Befehl veraendert Datentraeger oder Assigns";
+            return GetStr(MSG_WHY_DISKS);
     if (stricmp(name, "delete") == 0 && has_word(cmd, "ALL"))
-        return "rekursives Loeschen (Delete ALL)";
+        return GetStr(MSG_WHY_DELETE_ALL);
     for (i = 0; protected_assigns[i]; i++)
         if (has_word(cmd, protected_assigns[i]))
-            return "Befehl bezieht sich auf einen Systembereich";
+            return GetStr(MSG_WHY_SYSCMD);
     return NULL;
 }
 
@@ -1434,7 +1435,7 @@ static void add_collapsed(StrBuf *out, const char *buf)
             repeat++;
         } else {
             if (repeat)
-                outf(out, "[... vorige Zeile %d-mal wiederholt]\n", repeat);
+                outf(out, "[... previous line repeated %d times]\n", repeat);
             repeat = 0;
             sb_addn(out, p, len);
             sb_add(out, "\n");
@@ -1446,7 +1447,7 @@ static void add_collapsed(StrBuf *out, const char *buf)
         p = e + 1;
     }
     if (repeat)
-        outf(out, "[... vorige Zeile %d-mal wiederholt]\n", repeat);
+        outf(out, "[... previous line repeated %d times]\n", repeat);
 }
 
 /* Befehl ohne Freigabepruefung ausfuehren; Ergebnis nach out und als
@@ -1472,7 +1473,7 @@ void tools_exec(ToolCtx *ctx, const char *cmd, StrBuf *out)
     if (!in || !fh) {
         if (in) Close(in);
         if (fh) Close(fh);
-        sb_add(out, "Fehler: Ausgabedatei in T: nicht anlegbar");
+        sb_add(out, "Error: cannot create the output file in T:");
         return;
     }
     rc = shell_run(cmd, in, fh,
@@ -1483,13 +1484,13 @@ void tools_exec(ToolCtx *ctx, const char *cmd, StrBuf *out)
     Close(fh);
 
     if (rc == -1)
-        outf(out, "Fehler: Befehl konnte nicht gestartet werden\n");
+        outf(out, "Error: the command could not be started\n");
     else
         outf(out, "Returncode: %ld\n", (long)rc);
     if (status == SHELL_BREAK)
-        sb_add(out, "Hinweis: der Benutzer hat den Befehl mit CTRL-C abgebrochen.\n");
+        sb_add(out, "Note: the user aborted the command with CTRL-C.\n");
     else if (status == SHELL_TIMEOUT)
-        outf(out, "Hinweis: Zeitlimit von %s Sekunden ueberschritten, Befehl wurde per Break abgebrochen. Die Ausgabe bis dahin folgt.\n",
+        outf(out, "Note: time limit of %s seconds exceeded, the command was stopped with Break. The output up to then follows.\n",
              config_get(ctx->cfg, "agent.cmd_timeout", DEFAULT_TIMEOUT));
 
     sb_init(&dummy);
@@ -1504,12 +1505,12 @@ void tools_exec(ToolCtx *ctx, const char *cmd, StrBuf *out)
         n = coll.len;
         if (n > CMD_HEAD + CMD_TAIL) {
             sb_addn(out, coll.buf, CMD_HEAD);
-            outf(out, "\n[... %ld Bytes ausgelassen ...]\n", n - CMD_HEAD - CMD_TAIL);
+            outf(out, "\n[... %ld bytes omitted ...]\n", n - CMD_HEAD - CMD_TAIL);
             sb_add(out, coll.buf + n - CMD_TAIL);
         } else if (n > 0) {
             sb_add(out, coll.buf);
         } else {
-            sb_add(out, "(keine Ausgabe)");
+            sb_add(out, "(no output)");
         }
         sb_free(&coll);
     }
@@ -1534,11 +1535,11 @@ static void t_run(ToolCtx *ctx, const JNode *args, StrBuf *out)
     int ok;
 
     if (!cmd || !*cmd) {
-        sb_add(out, "Fehler: command fehlt");
+        sb_add(out, "Error: command is missing");
         free(cmd);
         return;
     }
-    snprintf(what, sizeof(what), "Befehl ausfuehren: %s\nVerzeichnis: %s", cmd, ctx->root);
+    snprintf(what, sizeof(what), GetStr(MSG_ASK_RUN), cmd, ctx->root);
     tools_audit(ctx, "run_command %s", cmd);
     /* "Execute programm" startet das Programm nicht, sondern liest es als Skript -
        keine Ausgabe, und das Modell sucht dann an der falschen Stelle */
@@ -1551,8 +1552,8 @@ static void t_run(ToolCtx *ctx, const JNode *args, StrBuf *out)
             Close(fh);
             if (!is_script_file(script)) {
                 char msg[700];
-                snprintf(msg, sizeof(msg), "Fehler: %s ist ein Programm, kein Skript. Execute ist nur fuer "
-                         "Skripte - starte das Programm direkt mit dem Befehl \"%s\" (ggf. mit Argumenten).",
+                snprintf(msg, sizeof(msg), "Error: %s is a program, not a script. Execute is only for "
+                         "scripts - start the program directly with the command \"%s\" (with arguments if needed).",
                          script, script);
                 sb_add(out, msg);
                 free(cmd);
@@ -1560,17 +1561,17 @@ static void t_run(ToolCtx *ctx, const JNode *args, StrBuf *out)
             }
         }
     }
-    snprintf(what, sizeof(what), "Befehl ausfuehren: %s\nVerzeichnis: %s", cmd, ctx->root);
+    snprintf(what, sizeof(what), GetStr(MSG_ASK_RUN), cmd, ctx->root);
     if ((never = command_never(cmd)))
         ok = ask_never(ctx, never, what);
     else if (ctx->mode == MODE_FULL || (ctx->mode == MODE_PROJECT && command_allowed(ctx, cmd))) {
-        tools_audit(ctx, "  Freigabe run_command: automatisch (Modus %s)", mode_name(ctx->mode));
+        tools_audit(ctx, "  approval run_command: automatic (mode %s)", mode_name(ctx->mode));
         ok = 1;
     } else
         ok = ask(ctx, TOOL_RUN, what);
 
     if (!ok) {
-        sb_add(out, "Abgelehnt: der Benutzer hat den Befehl nicht erlaubt. Nicht unveraendert wiederholen.");
+        sb_add(out, "Refused: the user did not allow the command. Do not repeat it unchanged.");
     } else {
         const char *res, *nl;
         tools_exec(ctx, cmd, out);
@@ -1591,11 +1592,11 @@ static int allow_web(ToolCtx *ctx, const char *what, StrBuf *out)
     const char *on = config_get(ctx->cfg, "agent.web", "yes");
 
     if (stricmp(on, "no") == 0 || stricmp(on, "0") == 0) {
-        sb_add(out, "Abgelehnt: Internetzugriff ist abgeschaltet ([agent] web=no).");
+        sb_add(out, "Refused: internet access is switched off ([agent] web=no).");
         return 0;
     }
     if (ctx->mode == MODE_SAFE && !ask(ctx, TOOL_WEB, what)) {
-        sb_add(out, "Abgelehnt: der Benutzer hat den Internetzugriff nicht erlaubt.");
+        sb_add(out, "Refused: the user did not allow internet access.");
         return 0;
     }
     return 1;
@@ -1608,17 +1609,17 @@ static void t_web_search(ToolCtx *ctx, const JNode *args, StrBuf *out)
     char *shown;
 
     if (!q || !*q) {
-        sb_add(out, "Fehler: query fehlt");
+        sb_add(out, "Error: query is missing");
         return;
     }
     shown = arg(args, "query");
-    snprintf(what, sizeof(what), "Im Internet suchen: %s", shown ? shown : q);
+    snprintf(what, sizeof(what), GetStr(MSG_ASK_SEARCH), shown ? shown : q);
     tools_audit(ctx, "web_search %s", shown ? shown : q);
     free(shown);
     if (!allow_web(ctx, what, out))
         return;
     if (web_search(q, out, err, sizeof(err)) < 0)
-        outf(out, "Fehler: Suche fehlgeschlagen: %s", err);
+        outf(out, "Error: search failed: %s", err);
 }
 
 static void t_fetch_url(ToolCtx *ctx, const JNode *args, StrBuf *out)
@@ -1628,15 +1629,15 @@ static void t_fetch_url(ToolCtx *ctx, const JNode *args, StrBuf *out)
     char what[700], err[200];
 
     if (!url || !*url) {
-        sb_add(out, "Fehler: url fehlt");
+        sb_add(out, "Error: url is missing");
         free(url);
         return;
     }
-    snprintf(what, sizeof(what), "Webseite laden: %s", url);
+    snprintf(what, sizeof(what), GetStr(MSG_ASK_FETCH), url);
     tools_audit(ctx, "fetch_url %s", url);
     if (allow_web(ctx, what, out) &&
         !web_fetch(url, offset < 0 ? 0 : offset, WEB_MAXLEN, out, err, sizeof(err)))
-        outf(out, "Fehler: %s konnte nicht geladen werden: %s", url, err);
+        outf(out, "Error: could not load %s: %s", url, err);
     free(url);
 }
 
@@ -1647,22 +1648,22 @@ void tools_undo(ToolCtx *ctx, StrBuf *out)
     Change *c;
 
     if (ctx->nchanges == 0) {
-        sb_add(out, "Keine Aenderungen in dieser Sitzung.");
+        sb_add(out, GetStr(MSG_NO_CHANGES));
         return;
     }
     c = &ctx->changes[ctx->nchanges - 1];
     if (c->backup) {
         if (copy_file(c->backup, c->path))
-            outf(out, "Wiederhergestellt: %s (Stand vor der ersten Aenderung in dieser Sitzung)", c->path);
+            outf(out, GetStr(MSG_UNDO_RESTORED), c->path);
         else {
-            outf(out, "Fehler: %s konnte nicht wiederhergestellt werden (Sicherung: %s)", c->path, c->backup);
+            outf(out, GetStr(MSG_UNDO_FAIL), c->path, c->backup);
             return;
         }
     } else {
         if (DeleteFile(c->path))
-            outf(out, "Geloescht: %s (war in dieser Sitzung neu angelegt)", c->path);
+            outf(out, GetStr(MSG_UNDO_DELETED), c->path);
         else {
-            dos_error(out, "kann neu angelegte Datei nicht loeschen", c->path);
+            dos_error(out, GetStr(MSG_UNDO_CANT_DELETE), c->path);
             return;
         }
     }
@@ -1678,7 +1679,7 @@ void tools_diff(ToolCtx *ctx, StrBuf *out)
     int i;
 
     if (ctx->nchanges == 0) {
-        sb_add(out, "Keine Aenderungen in dieser Sitzung.");
+        sb_add(out, GetStr(MSG_NO_CHANGES));
         return;
     }
     for (i = 0; i < ctx->nchanges; i++) {
@@ -1694,7 +1695,7 @@ void tools_diff(ToolCtx *ctx, StrBuf *out)
         after = load_file(c->path, &n, &dummy);
         sb_free(&dummy);
         if (!after)
-            sb_add(out, "(Datei existiert nicht mehr)\n");
+            sb_add(out, GetStr(MSG_DIFF_GONE));
         else
             block_diff(before ? before : "", after, out, 40);
         free(before);
@@ -1707,7 +1708,7 @@ void tools_diff(ToolCtx *ctx, StrBuf *out)
 void tools_run(ToolCtx *ctx, const char *name, const JNode *args, StrBuf *out)
 {
     if (!args || args->type != J_OBJ)
-        sb_add(out, "Fehler: ungueltige Argumente (kein JSON-Objekt)");
+        sb_add(out, "Error: invalid arguments (not a JSON object)");
     else if (strcmp(name, "read_file") == 0)
         t_read(ctx, args, out);
     else if (strcmp(name, "list_directory") == 0)
@@ -1731,10 +1732,10 @@ void tools_run(ToolCtx *ctx, const char *name, const JNode *args, StrBuf *out)
         if (n && *n)
             skills_read(ctx->cfg, n, out);
         else
-            sb_add(out, "Fehler: name fehlt");
+            sb_add(out, "Error: name is missing");
     }
     else
-        outf(out, "Fehler: unbekanntes Tool '%s'", name);
+        outf(out, "Error: unknown tool '%s'", name);
 }
 
 void tools_describe(const char *name, const JNode *args, char *buf, int len)
@@ -1757,6 +1758,6 @@ void tools_describe(const char *name, const JNode *args, char *buf, int len)
             *nl = 0;
         utf8_to_latin1(c);
     }
-    snprintf(buf, len, "%s %s", name, c && *c ? c : "(Projekt)");
+    snprintf(buf, len, "%s %s", name, c && *c ? c : GetStr(MSG_DESC_PROJECT));
     free(c);
 }
